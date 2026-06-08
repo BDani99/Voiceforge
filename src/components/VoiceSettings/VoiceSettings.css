@@ -1,0 +1,144 @@
+/* VoiceSettings.css - Sleek Dark Theme */
+
+.global-defaults-controls {
+  padding-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-xl);
+}
+
+.global-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.global-control-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.control-with-custom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Common form control styles */
+.global-select {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-weight: 500;
+  min-height: 40px;
+  /* Custom arrow for select in dark mode */
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem top 50%;
+  background-size: 0.65rem auto;
+}
+
+.global-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.global-select:hover {
+  border-color: var(--border-hover);
+}
+
+.global-select option {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+}
+
+/* Range Sliders */
+.custom-range {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.range-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.global-range {
+  width: 100%;
+  height: 4px;
+  background: var(--border-medium);
+  border-radius: var(--radius-full);
+  appearance: none;
+  cursor: pointer;
+  margin: var(--space-sm) 0;
+}
+
+.global-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--accent-glow);
+  transition: all var(--transition-fast);
+}
+
+.global-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: var(--accent-secondary);
+}
+
+.range-value {
+  font-size: 0.85rem;
+  color: var(--accent-primary);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Custom Toggle Button */
+.custom-toggle-btn {
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-toggle-btn:hover {
+  background: var(--bg-input);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}

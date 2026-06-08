@@ -1,0 +1,76 @@
+.admin-logs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.logs-header h2 {
+  margin: 0 0 8px 0;
+  color: #f8fafc;
+  font-size: 1.5rem;
+}
+
+.logs-header p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+.action-type-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-admin_topup {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-admin_deduct {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-generation {
+  background: rgba(139, 92, 246, 0.1);
+  color: #c084fc;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.reason-cell {
+  max-width: 300px;
+}
+
+.reason-text {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.text-emerald-400 { color: #34d399; }
+.text-red-400 { color: #f87171; }
+.text-purple-400 { color: #c084fc; }
+.text-muted { color: #64748b; font-style: italic; }
