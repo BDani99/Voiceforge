@@ -12,9 +12,12 @@ import {
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import LoadingScreen from '../LoadingScreen/LoadingScreen';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import { useConfirm } from '../../hooks/useConfirm';
 import './Profile.css';
 
 export default function Profile() {
+  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
   const [activeTab, setActiveTab] = useState('usage');
   const [profile, setProfile] = useState(null);
   const [user, setUser] = useState(null);
@@ -169,7 +172,14 @@ export default function Profile() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('Are you absolutely sure? This action cannot be undone and all your data will be permanently deleted.')) return;
+    const confirmed = await confirm({
+      title: 'Delete Account',
+      message: 'Are you absolutely sure? This action cannot be undone and all your data will be permanently deleted.',
+      confirmLabel: 'Delete Account',
+      cancelLabel: 'Cancel',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     toast.error('Account deletion must be done by an administrator. Please contact support.');
   };
 
@@ -193,6 +203,18 @@ export default function Profile() {
 
   return (
     <div className="profile-page">
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        details={confirmState.details}
+        confirmLabel={confirmState.confirmLabel}
+        cancelLabel={confirmState.cancelLabel}
+        variant={confirmState.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
+
       {/* Header */}
       <header className="profile-topbar">
         <div className="profile-topbar-left">
@@ -216,10 +238,6 @@ export default function Profile() {
             <span className="credit-amount">{profile?.available_characters?.toLocaleString() || '0'}</span>
             <span className="credit-label">credits</span>
           </div>
-          <button className="profile-btn" onClick={() => navigate('/profile')}>
-            <User size={18} />
-            <span>{profile?.display_name || user?.email?.split('@')[0] || 'Profile'}</span>
-          </button>
           <button onClick={handleLogout} className="logout-btn" title="Logout">
             <LogOut size={18} />
           </button>

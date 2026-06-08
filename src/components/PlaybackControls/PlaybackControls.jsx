@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
-import { Play, Pause, Music, Volume2, Upload } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import './PlaybackControls.css';
 
 function PlaybackControls({
@@ -10,14 +10,8 @@ function PlaybackControls({
   totalParagraphs,
   isPlayingAll,
   currentPlayingIndex,
-  generatingIndex,
-  bgmFileName,
-  bgmVolume,
-  handleBgmUpload,
-  handleBgmVolumeChange
+  generatingIndex
 }) {
-  const fileInputRef = useRef(null);
-
   return (
     <div className="playback-controls">
       <div className="playback-bar">
@@ -48,11 +42,11 @@ function PlaybackControls({
           <div className="segmented-progress-bar">
             {paragraphs.map((p, index) => {
               if (!p.text.trim()) return null;
-              
+
               const isPlaying = isPlayingAll && currentPlayingIndex === index;
               const isGenerating = generatingIndex === index;
               const isGenerated = p.isGenerated;
-              
+
               let statusClass = 'empty';
               if (isPlaying) statusClass = 'playing';
               else if (isGenerating) statusClass = 'generating';
@@ -71,33 +65,6 @@ function PlaybackControls({
             })}
           </div>
         </div>
-
-        <div className="bgm-controls">
-          <div className="bgm-upload" onClick={() => fileInputRef.current?.click()} title={bgmFileName ? `BGM: ${bgmFileName}` : 'Upload Background Music'}>
-            <Music size={18} className={bgmFileName ? 'active-icon' : ''} />
-            <input 
-              type="file" 
-              accept="audio/*" 
-              ref={fileInputRef} 
-              style={{ display: 'none' }} 
-              onChange={handleBgmUpload} 
-            />
-          </div>
-          {bgmFileName && (
-            <div className="bgm-volume">
-              <Volume2 size={16} />
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.01" 
-                value={bgmVolume} 
-                onChange={handleBgmVolumeChange} 
-                title="BGM Volume"
-              />
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -110,11 +77,7 @@ PlaybackControls.propTypes = {
   totalParagraphs: PropTypes.number.isRequired,
   isPlayingAll: PropTypes.bool.isRequired,
   currentPlayingIndex: PropTypes.number.isRequired,
-  generatingIndex: PropTypes.number.isRequired,
-  bgmFileName: PropTypes.string,
-  bgmVolume: PropTypes.number,
-  handleBgmUpload: PropTypes.func,
-  handleBgmVolumeChange: PropTypes.func
+  generatingIndex: PropTypes.number.isRequired
 };
 
 export default PlaybackControls;

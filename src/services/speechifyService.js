@@ -328,7 +328,7 @@ class SpeechifyService {
             
             // 5xx ERROR HANDLING: simba-multilingual is experimental
             if (status.startsWith('5') && model === 'simba-multilingual') {
-                throw new Error(`A simba-multilingual modell (kísérleti státuszú) jelenleg nem elérhető a szerverükön. Kérlek próbáld újra később! (Hiba: ${status})`);
+                throw new Error(`The simba-multilingual model (experimental) is currently unavailable on the server. Please try again later! (Error: ${status})`);
             }
             
             // FALLBACK LOGIC: If 400 Bad Request, it might be an SSML failure (Emotion/Emphasis not supported by model).

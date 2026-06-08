@@ -157,6 +157,14 @@
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
 
+/* Delete Button Hover */
+.delete-btn:not(:disabled):hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+
 /* Sleek Textarea */
 .paragraph-text {
   padding: var(--space-sm);
@@ -243,7 +251,22 @@
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-glow);
-  background: var(--bg-card); /* Slightly lighter on focus */
+  background: var(--bg-card);
+}
+
+/* Custom scrollbar for textarea */
+.paragraph-textarea::-webkit-scrollbar {
+  width: 4px;
+}
+.paragraph-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+.paragraph-textarea::-webkit-scrollbar-thumb {
+  background: var(--border-medium, rgba(255,255,255,0.12));
+  border-radius: 4px;
+}
+.paragraph-textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover, rgba(255,255,255,0.22));
 }
 
 /* Animations */

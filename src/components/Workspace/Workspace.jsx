@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Settings, X } from 'lucide-react';
+import { Type, X, Plus } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import Header from '../Header/Header';
@@ -9,9 +9,11 @@ import RightPanel from '../RightPanel/RightPanel';
 import PlaybackControls from '../PlaybackControls/PlaybackControls';
 import ParagraphControl from '../ParagraphControl/ParagraphControl';
 import Presets from '../Presets/Presets';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { useVoiceSettings } from '../../hooks/useVoiceSettings';
 import { useSpeechify } from '../../hooks/useSpeechify';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
+import { useConfirm } from '../../hooks/useConfirm';
 import '../../App.css';
 
 function Workspace() {
@@ -20,9 +22,10 @@ function Workspace() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Custom hooks for business logic
+  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
   const voiceSettings = useVoiceSettings();
   const speechify = useSpeechify(voiceSettings, projectId);
-  const audioPlayer = useAudioPlayer(speechify, voiceSettings, setIsLoading);
+  const audioPlayer = useAudioPlayer(speechify, voiceSettings, setIsLoading, confirm);
 
 
 
@@ -114,6 +117,17 @@ function Workspace() {
 
   return (
     <div className="app">
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        details={confirmState.details}
+        confirmLabel={confirmState.confirmLabel}
+        cancelLabel={confirmState.cancelLabel}
+        variant={confirmState.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
 
       <Header
         handleExportAll={audioPlayer.handleExportAll}
@@ -127,7 +141,7 @@ function Workspace() {
           <div className="left-panel">
             <div className="paragraphs-section">
               <div className="section-header">
-                <Settings size={24} />
+                <Type size={24} />
                 <h2>Text</h2>
                 <span className="generation-status">
                   {generatedCount} / {totalParagraphs} generated
@@ -137,34 +151,47 @@ function Workspace() {
               <div className="paragraphs-list">
                 {speechify.paragraphs.length === 0 ? (
                   <div className="empty-state">
-                    <Settings size={48} />
+                    <Type size={48} />
                     <p>No paragraphs added yet.</p>
                     <p>Start typing or load a project.</p>
                   </div>
                 ) : (
-                  speechify.paragraphs.map((paragraph, index) => (
-                    <ParagraphControl
-                      key={index}
-                      paragraph={paragraph}
-                      index={index}
-                      onUpdate={speechify.updateParagraph}
-                      onPlay={audioPlayer.handlePlayParagraph}
-                      onGenerate={speechify.generateParagraphAudio}
-                      onPreview={speechify.generatePreviewAudio}
-                      onSplitText={speechify.handleSplitText}
-                      isPlaying={audioPlayer.currentPlayingIndex === index && audioPlayer.isPlaying}
-                      isGenerating={speechify.generatingIndex === index}
-                      isGenerated={speechify.generatedParagraphs.has(index)}
-                      globalDefaults={voiceSettings.globalDefaults}
-                      currentEmotion={voiceSettings.emotion}
-                      isFirstParagraph={index === 0}
-                      useFadeTransitions={voiceSettings.useFadeTransitions}
-                      globalAudio={audioPlayer.getGlobalAudio}
-                      isPlayingAll={audioPlayer.isPlayingAll}
-                      currentPlayingIndex={audioPlayer.currentPlayingIndex}
-                      stopGlobalPlay={audioPlayer.resetAudioPlayer}
-                    />
-                  ))
+                  <>
+                    {speechify.paragraphs.some(p => p.text.trim()) && (
+                      <button
+                        className="add-paragraph-top-btn"
+                        onClick={speechify.addParagraphAtStart}
+                        title="Add new paragraph at the beginning"
+                      >
+                        <Plus size={16} />
+                        Add paragraph at beginning
+                      </button>
+                    )}
+                    {speechify.paragraphs.map((paragraph, index) => (
+                      <ParagraphControl
+                        key={paragraph.id || index}
+                        paragraph={paragraph}
+                        index={index}
+                        onUpdate={speechify.updateParagraph}
+                        onDelete={speechify.deleteParagraph}
+                        onPlay={audioPlayer.handlePlayParagraph}
+                        onGenerate={speechify.generateParagraphAudio}
+                        onPreview={speechify.generatePreviewAudio}
+                        onSplitText={speechify.handleSplitText}
+                        isPlaying={audioPlayer.currentPlayingIndex === index && audioPlayer.isPlaying}
+                        isGenerating={speechify.generatingIndex === index}
+                        isGenerated={speechify.generatedParagraphs.has(index)}
+                        globalDefaults={voiceSettings.globalDefaults}
+                        currentEmotion={voiceSettings.emotion}
+                        isFirstParagraph={index === 0}
+                        useFadeTransitions={voiceSettings.useFadeTransitions}
+                        globalAudio={audioPlayer.getGlobalAudio}
+                        isPlayingAll={audioPlayer.isPlayingAll}
+                        currentPlayingIndex={audioPlayer.currentPlayingIndex}
+                        stopGlobalPlay={audioPlayer.resetAudioPlayer}
+                      />
+                    ))}
+                  </>
                 )}
               </div>
             </div>
@@ -216,7 +243,7 @@ function Workspace() {
           />
         </div>
 
-        <PlaybackControls 
+        <PlaybackControls
           handlePlayAll={audioPlayer.handlePlayAll}
           skipToParagraph={audioPlayer.skipToParagraph}
           paragraphs={speechify.paragraphs}
@@ -224,10 +251,6 @@ function Workspace() {
           isPlayingAll={audioPlayer.isPlayingAll}
           currentPlayingIndex={audioPlayer.currentPlayingIndex}
           generatingIndex={speechify.generatingIndex}
-          bgmFileName={audioPlayer.bgmFileName}
-          bgmVolume={audioPlayer.bgmVolume}
-          handleBgmUpload={audioPlayer.handleBgmUpload}
-          handleBgmVolumeChange={audioPlayer.handleBgmVolumeChange}
         />
       </div>
     </div>

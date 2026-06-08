@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Play, Pause, Loader2, Mic, Check, Volume2 } from 'lucide-react';
+import { Play, Pause, Loader2, Mic, Check, Volume2, Trash2 } from 'lucide-react';
 import audioCrossfader from '../../utils/audioCrossfader';
 import './ParagraphControl.css';
 
@@ -11,6 +11,7 @@ function ParagraphControl({
   paragraph,
   index,
   onUpdate,
+  onDelete,
   onPlay,
   onGenerate,
   onPreview,
@@ -153,7 +154,7 @@ function ParagraphControl({
           <span className="paragraph-number">#{index + 1}</span>
           <span className="paragraph-chars">{paragraph.text.length} chars</span>
           {isGenerated && <Check size={16} className="status-icon success" />}
-          {paragraph.wasCached && <span className="cache-badge">Gyorsítótárazva (0 kredit)</span>}
+          {paragraph.wasCached && <span className="cache-badge">Cached (0 credits)</span>}
         </div>
 
         <div className="global-settings-display">
@@ -175,7 +176,7 @@ function ParagraphControl({
 
         <div className="paragraph-actions">
           <button
-            onClick={() => onGenerate(index, true)} // Force regenerate
+            onClick={() => onGenerate(index, true)}
             disabled={isGenerating || !paragraph.text.trim()}
             className="para-btn generate-btn"
             title="Generate/Regenerate audio"
@@ -189,6 +190,14 @@ function ParagraphControl({
             title={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"}
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+          </button>
+          <button
+            onClick={() => onDelete(index)}
+            disabled={isGenerating}
+            className="para-btn delete-btn"
+            title="Delete paragraph"
+          >
+            <Trash2 size={18} />
           </button>
         </div>
       </div>
@@ -240,6 +249,7 @@ ParagraphControl.propTypes = {
   }).isRequired,
   index: PropTypes.number.isRequired,
   onUpdate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
   onPlay: PropTypes.func.isRequired,
   onGenerate: PropTypes.func.isRequired,
   onPreview: PropTypes.func,

@@ -5,6 +5,8 @@ import { toast } from 'react-hot-toast';
 import { Plus, Trash2, FolderOpen, Search, User, RefreshCcw, Sparkles, Zap, ArrowRight, ArchiveRestore, HardDrive, LayoutGrid, Clock } from 'lucide-react';
 import LoadingScreen from '../LoadingScreen/LoadingScreen';
 import Modal from '../Modal/Modal';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import { useConfirm } from '../../hooks/useConfirm';
 import '../Header/Header.css';
 import './Dashboard.css';
 
@@ -17,6 +19,7 @@ export default function Dashboard() {
   const [credits, setCredits] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     fetchData();
@@ -101,7 +104,14 @@ export default function Dashboard() {
 
   const hardDeleteProject = async (id, e) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to permanently delete this project?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Project',
+      message: 'Are you sure you want to permanently delete this project? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
@@ -136,6 +146,18 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        details={confirmState.details}
+        confirmLabel={confirmState.confirmLabel}
+        cancelLabel={confirmState.cancelLabel}
+        variant={confirmState.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
+
       {/* HEADER */}
       <header className="app-header dashboard-header">
         <div className="header-left">
@@ -163,7 +185,6 @@ export default function Dashboard() {
       <div className="dashboard-content">
         <div className="dashboard-top-section">
           <div className="dashboard-hero">
-            <h2>Welcome back.</h2>
             <p>Pick up where you left off or create a new audio project.</p>
           </div>
 

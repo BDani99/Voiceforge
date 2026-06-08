@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Sparkles, FileAudio, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Sparkles, Download, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './Header.css';
 
@@ -28,8 +28,8 @@ function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs })
           className="export-all-btn"
           title="Export all paragraphs as single audio file"
         >
-          <FileAudio size={20} />
-          <span>Export All</span>
+          <Download size={20} />
+          <span>Export</span>
         </button>
         <button
           onClick={handleResetAll}

@@ -487,6 +487,30 @@ export const useSpeechify = (settings, projectId) => {
     }
   }, [paragraphs, selectedVoice, selectedLanguage, settings]);
 
+  const deleteParagraph = useCallback((index) => {
+    setParagraphs(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      return updated.length > 0 ? updated : [createParagraph('')];
+    });
+    setGeneratedParagraphs(prev => {
+      const newSet = new Set();
+      prev.forEach(i => {
+        if (i < index) newSet.add(i);
+        else if (i > index) newSet.add(i - 1);
+      });
+      return newSet;
+    });
+  }, [createParagraph]);
+
+  const addParagraphAtStart = useCallback(() => {
+    setParagraphs(prev => [createParagraph(''), ...prev]);
+    setGeneratedParagraphs(prev => {
+      const newSet = new Set();
+      prev.forEach(i => newSet.add(i + 1));
+      return newSet;
+    });
+  }, [createParagraph]);
+
   const resetSpeechify = useCallback(() => {
     setParagraphs([createParagraph('')]);
     setGeneratedParagraphs(new Set());
@@ -552,6 +576,8 @@ export const useSpeechify = (settings, projectId) => {
     handleLanguageChange,
     handleSplitText,
     updateParagraph,
+    deleteParagraph,
+    addParagraphAtStart,
     generateParagraphAudio,
     generatePreviewAudio,
     resetSpeechify,

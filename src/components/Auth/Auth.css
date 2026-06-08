@@ -57,7 +57,7 @@
 .password-input-wrapper input {
   padding-right: 44px;
 }
-.eye-toggle-btn {
+.password-input-wrapper .eye-toggle-btn {
   position: absolute;
   right: 10px;
   background: transparent;
@@ -70,13 +70,26 @@
   justify-content: center;
   border-radius: 4px;
   transition: color 0.2s;
-  width: auto;
-  height: auto;
+  width: 28px;
+  height: 28px;
   font-size: inherit;
+  font-weight: normal;
+  box-shadow: none;
 }
-.eye-toggle-btn:hover {
+.password-input-wrapper .eye-toggle-btn:hover {
   color: #94a3b8;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover,
+.auth-card input:-webkit-autofill:focus,
+.auth-card input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #0f172a inset !important;
+  -webkit-text-fill-color: white !important;
+  caret-color: white;
+  border: 1px solid #334155 !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 .auth-card input:focus {

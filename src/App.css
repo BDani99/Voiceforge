@@ -211,6 +211,28 @@ body {
   background: var(--border-hover);
 }
 
+/* Add paragraph at beginning button */
+.add-paragraph-top-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px dashed var(--border-medium);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  align-self: flex-start;
+}
+.add-paragraph-top-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
 /* Modern Empty State */
 .empty-state {
   display: flex;

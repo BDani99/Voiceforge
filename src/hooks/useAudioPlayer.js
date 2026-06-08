@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import audioCrossfader from '../utils/audioCrossfader';
 import speechifyService from '../services/speechifyService';
 
-export const useAudioPlayer = (speechify, settings, setIsLoading) => {
+export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) => {
   const { 
     paragraphs, 
     generateParagraphAudio, 
@@ -26,34 +26,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
   const isStoppingRef = useRef(false);
   const paragraphGapTimeoutRef = useRef(null);
 
-  const [bgmVolume, setBgmVolume] = useState(0.2);
-  const [bgmFileName, setBgmFileName] = useState('');
-  const bgmAudioRef = useRef(null);
-
-  const handleBgmUpload = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (bgmAudioRef.current) {
-        bgmAudioRef.current.pause();
-        URL.revokeObjectURL(bgmAudioRef.current.src);
-      }
-      setBgmFileName(file.name);
-      const url = URL.createObjectURL(file);
-      const audio = new Audio(url);
-      audio.loop = true;
-      audio.volume = bgmVolume;
-      bgmAudioRef.current = audio;
-    }
-  }, [bgmVolume]);
-
-  const handleBgmVolumeChange = useCallback((e) => {
-    const newVol = parseFloat(e.target.value);
-    setBgmVolume(newVol);
-    if (bgmAudioRef.current) {
-      bgmAudioRef.current.volume = newVol;
-    }
-  }, []);
-
   const getGlobalAudio = useCallback(() => currentAudioRef.current, []);
 
   const playNextInQueue = useCallback(async (startIndex = null) => {
@@ -65,9 +37,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
     } else {
       if (audioQueueRef.current.length === 0) {
         setIsPlaying(false);
-        if (bgmAudioRef.current && isGlobalMode) {
-          bgmAudioRef.current.pause();
-        }
         return;
       }
       nextIndex = audioQueueRef.current.shift();
@@ -124,9 +93,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
               }
             } else {
               setIsPlaying(false);
-              if (bgmAudioRef.current && isGlobalMode) {
-                bgmAudioRef.current.pause();
-              }
             }
           }
         };
@@ -185,8 +151,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
       isStoppingRef.current = false;
       if (currentAudioRef.current) currentAudioRef.current.pause();
       if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
-      if (bgmAudioRef.current) bgmAudioRef.current.pause(); // stop BGM on local play
-      
       setIsGlobalMode(false);
       audioQueueRef.current = [];
       playNextInQueue(index);
@@ -197,7 +161,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
     if (isGlobalMode && isPlaying) {
       // Pause Play All
       if (currentAudioRef.current) currentAudioRef.current.pause();
-      if (bgmAudioRef.current) bgmAudioRef.current.pause();
       setIsPlaying(false);
       isStoppingRef.current = true;
     } else if (isGlobalMode && !isPlaying && activeIndex !== -1) {
@@ -205,10 +168,8 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
       isStoppingRef.current = false;
       if (currentAudioRef.current) {
         currentAudioRef.current.play();
-        if (bgmAudioRef.current) bgmAudioRef.current.play();
         setIsPlaying(true);
       } else {
-        if (bgmAudioRef.current) bgmAudioRef.current.play();
         playNextInQueue(activeIndex);
       }
     } else {
@@ -227,10 +188,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
       }
 
       setIsGlobalMode(true);
-      if (bgmAudioRef.current) {
-        bgmAudioRef.current.currentTime = 0;
-        bgmAudioRef.current.play().catch(e => console.error("BGM Play failed:", e));
-      }
       audioQueueRef.current = validParagraphs.slice(1);
       playNextInQueue(validParagraphs[0]);
     }
@@ -251,9 +208,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
     if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
     
     setIsGlobalMode(true);
-    if (bgmAudioRef.current && !isPlaying) {
-        bgmAudioRef.current.play().catch(e => console.error("BGM Play failed:", e));
-    }
     audioQueueRef.current = newQueue.slice(1);
     playNextInQueue(newQueue[0]);
   }, [paragraphs, playNextInQueue, isPlaying]);
@@ -269,14 +223,20 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
     const generatedCount = validParagraphs.filter(p => p.isGenerated).length;
     const toGenerateCount = validParagraphs.length - generatedCount;
 
-    const confirmMessage = `Export Audio Confirmation:\n\n` +
-      `📝 Total characters: ${totalChars.toLocaleString()}\n` +
-      `✅ Already generated: ${generatedCount} paragraph${generatedCount !== 1 ? 's' : ''}\n` +
-      `🔄 Need to generate: ${toGenerateCount} paragraph${toGenerateCount !== 1 ? 's' : ''}\n` +
-      `🎨 Fade transitions: ${useFadeTransitions ? 'Enabled' : 'Disabled'}\n\n` +
-      `Do you want to proceed with the export?`;
+    const confirmed = await showConfirm({
+      title: 'Export Audio',
+      details: [
+        { icon: '📝', text: `Total characters: ${totalChars.toLocaleString()}` },
+        { icon: '✅', text: `Already generated: ${generatedCount} paragraph${generatedCount !== 1 ? 's' : ''}` },
+        { icon: '🔄', text: `Need to generate: ${toGenerateCount} paragraph${toGenerateCount !== 1 ? 's' : ''}` },
+        { icon: '🎨', text: `Fade transitions: ${useFadeTransitions ? 'Enabled' : 'Disabled'}` },
+      ],
+      message: 'Do you want to proceed with the export?',
+      confirmLabel: 'Export',
+      cancelLabel: 'Cancel',
+    });
 
-    if (!window.confirm(confirmMessage)) {
+    if (!confirmed) {
       return;
     }
 
@@ -348,17 +308,11 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
       }
       currentAudioRef.current = null;
     }
-    if (bgmAudioRef.current) {
-      bgmAudioRef.current.pause();
-      URL.revokeObjectURL(bgmAudioRef.current.src);
-      bgmAudioRef.current = null;
-    }
     if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
     audioQueueRef.current = [];
     setActiveIndex(-1);
     setIsPlaying(false);
     setIsGlobalMode(false);
-    setBgmFileName('');
   }, []);
 
   return {
@@ -370,10 +324,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading) => {
     skipToParagraph,
     handleExportAll,
     resetAudioPlayer,
-    getGlobalAudio,
-    bgmFileName,
-    bgmVolume,
-    handleBgmUpload,
-    handleBgmVolumeChange
+    getGlobalAudio
   };
 };

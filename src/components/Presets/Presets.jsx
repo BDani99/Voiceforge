@@ -10,6 +10,7 @@ export default function Presets({ currentSettings, onApplyPreset }) {
   const [newPresetName, setNewPresetName] = useState('');
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activePresetName, setActivePresetName] = useState('');
 
   const fetchPresets = async () => {
     setLoading(true);
@@ -54,6 +55,7 @@ export default function Presets({ currentSettings, onApplyPreset }) {
 
   const applyPreset = (preset) => {
     onApplyPreset(preset.settings);
+    setActivePresetName(preset.name);
     toast.success(`Applied preset: ${preset.name}`);
     setIsModalOpen(false);
   };
@@ -77,6 +79,12 @@ export default function Presets({ currentSettings, onApplyPreset }) {
         Voice Presets
         {presets.length > 0 && <span className="presets-count">{presets.length}</span>}
       </button>
+      {activePresetName && (
+        <div className="active-preset-indicator">
+          <Bookmark size={12} />
+          <span>{activePresetName}</span>
+        </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Voice Presets">
         <form onSubmit={savePreset} className="preset-save-form">

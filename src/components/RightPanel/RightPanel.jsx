@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Volume2, Settings2, Sliders, X, BookOpen } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, EMOTION_OPTIONS, EMPHASIS_OPTIONS } from '../../constants/voiceConstants';
@@ -37,12 +37,34 @@ function RightPanel({
   presetsComponent
 }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedGender, setSelectedGender] = useState('');
 
-  const filteredVoices = useMemo(() => {
+  // Reset gender filter when language changes
+  useEffect(() => {
+    setSelectedGender('');
+  }, [selectedLanguage]);
+
+  const baseVoices = useMemo(() => {
     const exactMatches = voices.filter(v => v.locale === selectedLanguage);
     if (exactMatches.length > 0) return exactMatches;
     return voices.filter(v => v.locale === 'en-US' || v.locale === 'en-GB' || !v.locale);
   }, [voices, selectedLanguage]);
+
+  const filteredVoices = useMemo(() => {
+    if (!selectedGender) return baseVoices;
+    const genderFiltered = baseVoices.filter(v => v.gender?.toLowerCase() === selectedGender);
+    return genderFiltered.length > 0 ? genderFiltered : baseVoices;
+  }, [baseVoices, selectedGender]);
+
+  // Auto-select first voice when filter narrows list and current voice is no longer available
+  useEffect(() => {
+    if (filteredVoices.length > 0) {
+      const voiceInList = filteredVoices.find(v => v.id === selectedVoice);
+      if (!voiceInList) {
+        handleVoiceChange(filteredVoices[0].id);
+      }
+    }
+  }, [filteredVoices, selectedVoice, handleVoiceChange]);
 
   return (
     <div className="right-panel">
@@ -55,6 +77,20 @@ function RightPanel({
             onChange={(val) => handleLanguageChange(val)}
             disabled={isLoading}
             options={SUPPORTED_LANGUAGES.map((lang) => ({ value: lang.code, label: lang.name }))}
+          />
+        </div>
+
+        <div className="setting-group">
+          <label>Gender</label>
+          <CustomSelect
+            value={selectedGender}
+            onChange={(val) => setSelectedGender(val)}
+            disabled={isLoading}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'male', label: 'Male' },
+              { value: 'female', label: 'Female' },
+            ]}
           />
         </div>
 

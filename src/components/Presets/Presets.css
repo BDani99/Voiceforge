@@ -141,3 +141,17 @@
   font-size: 0.9rem;
   padding: 24px 0;
 }
+
+.active-preset-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-md, 10px);
+  color: var(--accent-primary, #818cf8);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
