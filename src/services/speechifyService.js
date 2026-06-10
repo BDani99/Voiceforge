@@ -1,55 +1,25 @@
 // services/speechifyService.js
-const API_KEY = import.meta.env.VITE_SPEECHIFY_API_KEY;
-const BASE_URL = "https://api.sws.speechify.com/v1";
+import { supabase } from './supabase';
 
 class SpeechifyService {
     constructor() {
-        this.token = null;
-        this.tokenExpiry = null;
         this.maxConcurrentRequests = 2; // Strict limit to prevent 429 Too Many Requests
         this.requestQueue = [];
         this.activeRequests = 0;
         this.audioCache = new Map(); // Cache for generated audio
     }
 
-    async getAccessToken() {
-        if (this.token && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-            return this.token;
-        }
-
-        const response = await fetch(`${BASE_URL}/auth/token`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                grant_type: 'client_credentials',
-                scope: 'audio:all voices:read'
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        this.token = data.access_token;
-        this.tokenExpiry = Date.now() + (data.expires_in * 1000 * 0.9);
-        return this.token;
-    }
+    // getAccessToken removed, token is handled by the Edge Function
 
     async getVoices() {
-        const token = await this.getAccessToken();
-        const response = await fetch(`${BASE_URL}/voices`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const { data, error } = await supabase.functions.invoke('generate-speech', {
+            method: 'GET'
         });
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch voices: ${response.status} ${response.statusText}`);
+        if (error) {
+            throw new Error(`Failed to fetch voices: ${error.message}`);
         }
 
-        const data = await response.json();
         return data || [];
     }
 
@@ -284,8 +254,6 @@ class SpeechifyService {
             return new Blob([cachedBlob], { type: cachedBlob.type });
         }
 
-        const token = await this.getAccessToken();
-        
         // Proactively skip SSML Emotion and Emphasis tags for non-English languages
         // to avoid unnecessary 400 errors and retry round-trips.
         const isEnglish = ['en-US', 'en-GB'].includes(language);
@@ -308,20 +276,14 @@ class SpeechifyService {
         let data;
         try {
             data = await this.throttleRequest(async () => {
-                const response = await fetch(`${BASE_URL}/audio/speech`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
+                const { data: responseData, error } = await supabase.functions.invoke('generate-speech', {
+                    body: requestBody
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(`${response.status}|${errorData.message || response.statusText}`);
+                if (error) {
+                    throw new Error(`500|${error.message}`);
                 }
-                return await response.json();
+                return responseData;
             });
         } catch (error) {
             const [status, message] = error.message.split('|');
@@ -347,20 +309,14 @@ class SpeechifyService {
                 const fallbackBody = { ...requestBody, input: fallbackSsml };
 
                 data = await this.throttleRequest(async () => {
-                    const response = await fetch(`${BASE_URL}/audio/speech`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(fallbackBody)
+                    const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('generate-speech', {
+                        body: fallbackBody
                     });
 
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(`Fallback generation failed: ${response.status} ${errorData.message || response.statusText}`);
+                    if (fallbackError) {
+                        throw new Error(`Fallback generation failed: 500 ${fallbackError.message}`);
                     }
-                    return await response.json();
+                    return fallbackData;
                 });
             } else {
                 throw new Error(`Speech generation failed: ${status} ${message}`);
@@ -642,14 +598,12 @@ class SpeechifyService {
     cleanup() {
         this.clearQueue();
         this.clearCache();
-        this.token = null;
-        this.tokenExpiry = null;
     }
 
     getStatus() {
         return {
-            hasToken: !!this.token,
-            tokenExpiry: this.tokenExpiry,
+            hasToken: true, // Edge function handles auth
+            tokenExpiry: null,
             activeRequests: this.activeRequests,
             queuedRequests: this.requestQueue.length,
             cacheSize: this.audioCache.size

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Users, Activity, Database, Zap, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -41,11 +41,19 @@ export default function AdminDashboard() {
         .from('audio_cache')
         .select('*', { count: 'exact', head: true });
 
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const { data: dauData } = await supabase
+        .from('usage_logs')
+        .select('user_id')
+        .gte('created_at', yesterday.toISOString());
+      const dauCount = dauData ? new Set(dauData.map(log => log.user_id)).size : 0;
+
       setStats({
         totalUsers: userCount || 0,
         apiCalls: apiCalls || 0,
         cacheHits: cacheEntries || 0,
-        dailyActive: Math.floor((userCount || 0) * 0.3) + 1 // Mock 30% daily active
+        dailyActive: dauCount
       });
 
       // Fetch real log data for the last 14 days
@@ -98,7 +106,7 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load dashboard stats');
+      notify.error(err, 'Failed to load dashboard stats');
     } finally {
       setLoading(false);
     }
@@ -149,8 +157,8 @@ export default function AdminDashboard() {
             <Zap size={20} className="kpi-icon text-yellow-500" />
           </div>
           <div className="kpi-value">{stats.dailyActive}</div>
-          <div className="kpi-trend neutral" style={{ color: '#94a3b8' }}>
-            <Info size={14} /> <span>To be tracked later</span>
+          <div className="kpi-trend positive">
+            <TrendingUp size={14} /> <span>Last 24 hours</span>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Plus, Trash2, FolderOpen, Search, User, RefreshCcw, Sparkles, Zap, ArrowRight, ArchiveRestore, HardDrive, LayoutGrid, Clock } from 'lucide-react';
 import LoadingScreen from '../LoadingScreen/LoadingScreen';
 import Modal from '../Modal/Modal';
@@ -49,7 +49,7 @@ export default function Dashboard() {
       setProjects(projectsResponse.data);
       setCredits(profileResponse.data.available_characters);
     } catch (error) {
-      toast.error('Failed to load dashboard data');
+      notify.error(error, 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -69,12 +69,12 @@ export default function Dashboard() {
       setNewTitle('');
       setProjects([data[0], ...projects]);
       setIsCreateModalOpen(false);
-      toast.success('Project created!');
+      notify.success('Project created!');
       
       // Optionally redirect straight to project
       // navigate(`/app/${data[0].id}`);
     } catch (error) {
-      toast.error('Failed to create project: ' + error.message);
+      notify.error(error, 'Failed to create project');
     }
   };
 
@@ -84,9 +84,9 @@ export default function Dashboard() {
       const { error } = await supabase.from('projects').update({ is_deleted: true }).eq('id', id);
       if (error) throw error;
       setProjects(projects.map(p => p.id === id ? { ...p, is_deleted: true } : p));
-      toast.success('Project moved to trash');
+      notify.success('Project moved to trash');
     } catch (error) {
-      toast.error('Failed to delete project');
+      notify.error(error, 'Failed to delete project');
     }
   };
 
@@ -96,9 +96,9 @@ export default function Dashboard() {
       const { error } = await supabase.from('projects').update({ is_deleted: false }).eq('id', id);
       if (error) throw error;
       setProjects(projects.map(p => p.id === id ? { ...p, is_deleted: false } : p));
-      toast.success('Project restored');
+      notify.success('Project restored');
     } catch (error) {
-      toast.error('Failed to restore project');
+      notify.error(error, 'Failed to restore project');
     }
   };
 
@@ -116,9 +116,9 @@ export default function Dashboard() {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
       setProjects(projects.filter(p => p.id !== id));
-      toast.success('Project permanently deleted');
+      notify.success('Project permanently deleted');
     } catch (error) {
-      toast.error('Failed to delete project');
+      notify.error(error, 'Failed to delete project');
     }
   };
 

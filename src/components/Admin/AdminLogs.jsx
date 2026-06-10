@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Search, Filter, ArrowUpRight, ArrowDownRight, Settings } from 'lucide-react';
 import './AdminLogs.css';
 
@@ -37,7 +37,7 @@ export default function AdminLogs() {
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
         
       if (rawLogs) setLogs(rawLogs);
-      else toast.error('Error loading logs');
+      else notify.error(error, 'Error loading logs');
     }
     setLoading(false);
   };

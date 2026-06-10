@@ -1,36 +1,40 @@
 import React, { useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { notify, getErrorMessage } from '../../utils/notificationService';
 import { Shield } from 'lucide-react';
-import '../Auth/Auth.css'; // Reusing Auth.css for now
+import './Admin.css';
 
 export default function AdminAuth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg('');
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       
       // Verify admin role
-      const { data: profile } = await supabase.from('users_profile').select('*').eq('id', data.user.id).single();
+      const { data: profile } = await supabase.from('users_profile').select('role').eq('id', data.user.id).single();
 
       if (profile?.role !== 'admin' && data.user.email !== 'admin@voiceforge.com') {
         // Not an admin, sign out immediately
         await supabase.auth.signOut();
-        throw new Error('Access denied. Administrator privileges required.');
+        throw new Error("You don't have permission to access the admin area.");
       }
       
-      toast.success('Admin login successful');
+      notify.success('Admin login successful');
       navigate('/admin/dashboard');
     } catch (error) {
-      toast.error(error.message);
+      const friendlyMessage = getErrorMessage(error);
+      setErrorMsg(friendlyMessage);
+      notify.error(error);
     } finally {
       setLoading(false);
     }

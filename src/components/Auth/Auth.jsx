@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { notify, getErrorMessage } from '../../utils/notificationService';
 import { Eye, EyeOff } from 'lucide-react';
 import './Auth.css';
 
@@ -9,6 +9,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
@@ -38,16 +39,23 @@ export default function Auth() {
         if (error) throw error;
         navigate('/projects');
       } else {
-        if (strength < 2) throw new Error('Password is too weak.');
         if (password !== confirmPassword) throw new Error('Passwords do not match.');
-        const { error } = await supabase.auth.signUp({ email, password });
+        if (strength < 2) throw new Error('Password is too weak.');
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            data: { display_name: displayName }
+          }
+        });
         if (error) throw error;
-        toast.success('Registration successful! You can now log in.');
+        notify.success('Registration successful! You can now log in.');
         setIsLogin(true);
       }
     } catch (error) {
-      setErrorMsg(error.message);
-      toast.error(error.message);
+      const friendlyMessage = getErrorMessage(error);
+      setErrorMsg(friendlyMessage);
+      notify.error(error);
       setShake(true);
       setTimeout(() => setShake(false), 400);
     } finally {
@@ -60,6 +68,7 @@ export default function Auth() {
     setErrorMsg('');
     setPassword('');
     setConfirmPassword('');
+    setDisplayName('');
     setShowPassword(false);
     setShowConfirmPassword(false);
   };
@@ -94,6 +103,15 @@ export default function Auth() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+
+          {!isLogin && (
+            <input
+              type="text"
+              placeholder="Display Name (Optional)"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          )}
 
           <div className="password-input-wrapper">
             <input

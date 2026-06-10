@@ -1,0 +1,16 @@
+.system-announcement {
+  position: relative;
+  width: 100%;
+  background-color: rgba(234, 179, 8, 0.2); /* Muted yellow for dark theme */
+  border-bottom: 1px solid rgba(234, 179, 8, 0.4);
+  color: #fef08a; /* yellow-200 */
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  z-index: 9999;
+  text-align: center;
+}

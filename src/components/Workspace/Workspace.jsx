@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Type, X, Plus } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
@@ -35,7 +35,7 @@ function Workspace() {
       
       if (e.ctrlKey && e.key === 'Enter') {
         // Generate all ungenerated
-        toast('Generating all blocks...', { icon: '⚡' });
+        notify.info('Generating all blocks...');
         for (let i = 0; i < speechify.paragraphs.length; i++) {
           if (speechify.paragraphs[i].text.trim() && !speechify.paragraphs[i].isGenerated) {
             await speechify.generateParagraphAudio(i, false);
@@ -46,7 +46,7 @@ function Workspace() {
         audioPlayer.handlePlayAll();
       } else if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
-        toast.success('Project synced manually (Auto-save is also active)');
+        notify.success('Project synced manually (Auto-save is also active)');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -55,15 +55,7 @@ function Workspace() {
 
   useEffect(() => {
     const handleFallback = (e) => {
-      toast(e.detail.message, {
-        icon: '⚠️',
-        style: {
-          borderRadius: '10px',
-          background: '#1e293b',
-          color: '#f8fafc',
-          border: '1px solid #f59e0b'
-        },
-      });
+      notify.warning(e.detail.message);
     };
     window.addEventListener('speechify-fallback-warning', handleFallback);
     return () => window.removeEventListener('speechify-fallback-warning', handleFallback);

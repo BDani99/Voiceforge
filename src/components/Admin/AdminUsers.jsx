@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Search, Filter, MoreVertical, X, ShieldAlert, Plus, Minus } from 'lucide-react';
 import './AdminUsers.css';
 
@@ -32,7 +32,7 @@ export default function AdminUsers() {
     if (!error && data) {
       setUsers(data);
     } else {
-      toast.error('Error loading users');
+      notify.error(error, 'Error loading users');
     }
     setLoading(false);
   };
@@ -40,12 +40,12 @@ export default function AdminUsers() {
   const handleAdjustCredits = async (e) => {
     e.preventDefault();
     if (!creditReason.trim()) {
-      toast.error('Reason is required!');
+      notify.warning('Reason is required!');
       return;
     }
     const amount = parseInt(creditAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Enter a valid positive amount!');
+      notify.warning('Enter a valid positive amount!');
       return;
     }
 
@@ -67,12 +67,12 @@ export default function AdminUsers() {
         reason: creditReason.trim()
       }]);
 
-      toast.success(`Credits updated for: ${selectedUser.email}`);
+      notify.success(`Credits updated for: ${selectedUser.email}`);
       setUsers(users.map(u => u.id === selectedUser.id ? { ...u, available_characters: newBalance } : u));
       closeModal();
     } catch (err) {
       console.error(err);
-      toast.error('Error during transaction');
+      notify.error(err, 'Error during transaction');
     }
   };
 
@@ -86,11 +86,11 @@ export default function AdminUsers() {
         
       if (error) throw error;
       
-      toast.success(newStatus ? 'Account suspended!' : 'Account activated!');
+      notify.success(newStatus ? 'Account suspended!' : 'Account activated!');
       setUsers(users.map(u => u.id === selectedUser.id ? { ...u, is_banned: newStatus } : u));
       setSelectedUser({ ...selectedUser, is_banned: newStatus });
     } catch (err) {
-      toast.error('Error modifying status');
+      notify.error(err, 'Error modifying status');
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Plus, Trash2, Save, BookOpen } from 'lucide-react';
 import Accordion from '../Accordion/Accordion';
 import LoadingScreen from '../LoadingScreen/LoadingScreen';
@@ -63,9 +63,9 @@ export default function Dictionary({ onUpdateGlobal }) {
       setOriginalWord('');
       setReplacementWord('');
       updateParentHook(newEntries);
-      toast.success('Word added to dictionary');
+      notify.success('Word added to dictionary');
     } catch (err) {
-      toast.error('Failed to add word');
+      notify.error(err, 'Failed to add word');
     }
   };
 
@@ -77,9 +77,9 @@ export default function Dictionary({ onUpdateGlobal }) {
       const newEntries = entries.filter(e => e.id !== id);
       setEntries(newEntries);
       updateParentHook(newEntries);
-      toast.success('Word removed');
+      notify.success('Word removed');
     } catch (err) {
-      toast.error('Failed to remove word');
+      notify.error(err, 'Failed to remove word');
     }
   };
 

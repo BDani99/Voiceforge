@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import speechifyService from '../services/speechifyService';
 import audioCrossfader from '../utils/audioCrossfader';
 import { supabase } from '../services/supabase';
+import { notify } from '../utils/notificationService';
 
 export const useSpeechify = (settings, projectId) => {
   const [voices, setVoices] = useState([]);
@@ -557,7 +558,7 @@ export const useSpeechify = (settings, projectId) => {
       await audio.play();
     } catch (err) {
       console.error('Preview error:', err);
-      toast.error('Preview failed: ' + err.message);
+      notify.error(err, 'Preview failed');
     }
   }, [selectedVoice, selectedLanguage, settings]);
 

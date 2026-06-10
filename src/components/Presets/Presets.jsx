@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Save, Download, Trash2, Bookmark } from 'lucide-react';
 import Modal from '../Modal/Modal';
 import './Presets.css';
@@ -47,16 +47,16 @@ export default function Presets({ currentSettings, onApplyPreset }) {
       if (error) throw error;
       setPresets([data[0], ...presets]);
       setNewPresetName('');
-      toast.success('Preset saved!');
+      notify.success('Preset saved!');
     } catch (err) {
-      toast.error('Failed to save preset');
+      notify.error(err, 'Failed to save preset');
     }
   };
 
   const applyPreset = (preset) => {
     onApplyPreset(preset.settings);
     setActivePresetName(preset.name);
-    toast.success(`Applied preset: ${preset.name}`);
+    notify.success(`Applied preset: ${preset.name}`);
     setIsModalOpen(false);
   };
 
@@ -66,9 +66,9 @@ export default function Presets({ currentSettings, onApplyPreset }) {
       const { error } = await supabase.from('presets').delete().eq('id', id);
       if (error) throw error;
       setPresets(presets.filter(p => p.id !== id));
-      toast.success('Preset deleted');
+      notify.success('Preset deleted');
     } catch (err) {
-      toast.error('Failed to delete preset');
+      notify.error(err, 'Failed to delete preset');
     }
   };
 

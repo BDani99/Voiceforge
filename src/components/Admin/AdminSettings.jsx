@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import { Save, Settings2, Bell } from 'lucide-react';
 import LoadingScreen from '../LoadingScreen/LoadingScreen';
 import './AdminSettings.css';
@@ -58,10 +58,10 @@ export default function AdminSettings() {
         { key: 'announcement', value: settings.announcement }
       ]);
 
-      toast.success('System settings saved successfully!');
+      notify.success('System settings saved successfully!');
     } catch (err) {
       console.error(err);
-      toast.error('Error saving settings. Does system_settings table exist?');
+      notify.error(err, 'Error saving settings. Does system_settings table exist?');
     } finally {
       setSaving(false);
     }

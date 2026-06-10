@@ -13,6 +13,7 @@ import AdminUsers from './components/Admin/AdminUsers';
 import AdminLogs from './components/Admin/AdminLogs';
 import AdminSettings from './components/Admin/AdminSettings';
 import LoadingScreen from './components/LoadingScreen/LoadingScreen';
+import SystemAnnouncement from './components/SystemAnnouncement/SystemAnnouncement';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const [session, setSession] = useState(null);
@@ -75,6 +76,7 @@ function App() {
   return (
     <>
       <Toaster position="top-center" />
+      <SystemAnnouncement />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Auth />} />

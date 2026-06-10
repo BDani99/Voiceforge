@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { notify } from '../../utils/notificationService';
 import {
   User, ArrowLeft, Settings, Activity, Zap, TrendingUp,
   TrendingDown, Eye, EyeOff, Save, Key, Mail, Calendar,
@@ -42,6 +42,9 @@ export default function Profile() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [newEmailInput, setNewEmailInput] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -109,7 +112,7 @@ export default function Profile() {
 
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load profile');
+      notify.error('Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -125,9 +128,10 @@ export default function Profile() {
         .update({ display_name: displayName.trim() })
         .eq('id', user.id);
       if (error) throw error;
-      toast.success('Display name updated!');
+      setProfile(prev => ({ ...prev, display_name: displayName.trim() }));
+      notify.success('Display name updated!');
     } catch (err) {
-      toast.error('Failed to update name: ' + err.message);
+      notify.error(err, 'Failed to update name');
     } finally {
       setSavingName(false);
     }
@@ -135,37 +139,47 @@ export default function Profile() {
 
   const handleSaveEmail = async (e) => {
     e.preventDefault();
-    const newEmail = prompt('Enter your new email address:', user?.email);
-    if (!newEmail || newEmail === user?.email) return;
+    if (!newEmailInput || newEmailInput === user?.email) {
+      setIsEditingEmail(false);
+      return;
+    }
+    setSavingEmail(true);
     try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      const { error } = await supabase.auth.updateUser({ email: newEmailInput });
       if (error) throw error;
-      toast.success('Check your new email to confirm the change!');
+      notify.success('Check your new email to confirm the change!');
+      setIsEditingEmail(false);
     } catch (err) {
-      toast.error('Failed to update email: ' + err.message);
+      if (err.message && err.message.toLowerCase().includes('invalid')) {
+        notify.error('Kérlek használj valós e-mail szolgáltatót (pl. @gmail.com)! A rendszer biztonsági szűrője blokkolja a hamis (pl. @e.com) domaineket.');
+      } else {
+        notify.error(err, 'Failed to update email');
+      }
+    } finally {
+      setSavingEmail(false);
     }
   };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match!');
+      notify.error('Passwords do not match!');
       return;
     }
     if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters!');
+      notify.error('Password must be at least 8 characters!');
       return;
     }
     setSavingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success('Password changed successfully!');
+      notify.success('Password changed successfully!');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      toast.error('Failed to change password: ' + err.message);
+      notify.error(err, 'Failed to change password');
     } finally {
       setSavingPassword(false);
     }
@@ -180,7 +194,16 @@ export default function Profile() {
       variant: 'danger',
     });
     if (!confirmed) return;
-    toast.error('Account deletion must be done by an administrator. Please contact support.');
+    
+    try {
+      const { error } = await supabase.rpc('delete_user');
+      if (error) throw error;
+      await supabase.auth.signOut();
+      notify.success('Your account has been deleted.');
+      navigate('/login');
+    } catch (err) {
+      notify.error(err, 'Failed to delete account');
+    }
   };
 
   const formatDate = (d) => new Date(d).toLocaleString('en-US', {
@@ -380,11 +403,10 @@ export default function Profile() {
               <div className="settings-body">
                 <div className="info-row">
                   <Mail size={16} />
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <label>Email Address</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <span>{user?.email}</span>
-                      <button onClick={handleSaveEmail} className="change-email-btn" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#c084fc', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>Change</button>
                     </div>
                   </div>
                 </div>
