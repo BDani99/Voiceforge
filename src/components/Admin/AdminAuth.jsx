@@ -3,7 +3,7 @@ import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify, getErrorMessage } from '../../utils/notificationService';
 import { Shield } from 'lucide-react';
-import './Admin.css';
+import '../Auth/Auth.css';
 
 export default function AdminAuth() {
   const [email, setEmail] = useState('');
