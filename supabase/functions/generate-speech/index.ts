@@ -1,13 +1,15 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { createClient } from 'npm:@supabase/supabase-js@2.107.0'
+import {
+  MAX_REQUESTS_PER_MINUTE,
+  mapReserveError,
+  mapSpeechifyStatus,
+  parseGenerateRequest,
+  resolveAllowedOrigin,
+} from './logic.ts'
 
 const SPEECHIFY_BASE = 'https://api.sws.speechify.com/v1'
 const REQUEST_TIMEOUT_MS = 30_000
-const MAX_INPUT_LENGTH = 20_000
-const MAX_VOICE_ID_LENGTH = 128
-const ALLOWED_MODELS = new Set(['simba-english', 'simba-multilingual'])
-const ALLOWED_ACTIONS = new Set(['generation', 'preview'])
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const LOCALE_RE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/
+const SETTLE_ATTEMPTS = 3
 
 // Comma separated list of allowed origins, e.g. "https://app.example.com,http://localhost:3000".
 // Unset = any origin (the API is protected by a Bearer token, not by cookies).
@@ -17,12 +19,8 @@ const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
   .filter(Boolean)
 
 function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') ?? ''
-  const allowOrigin = ALLOWED_ORIGINS.length === 0
-    ? '*'
-    : ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
-    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Origin': resolveAllowedOrigin(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Vary': 'Origin',
@@ -37,7 +35,7 @@ function json(req: Request, body: unknown, status = 200): Response {
 }
 
 // ---------------------------------------------------------------------------
-// Speechify helpers
+// Speechify
 // ---------------------------------------------------------------------------
 
 let cachedToken: { value: string; expiresAt: number } | null = null
@@ -63,52 +61,6 @@ async function getSpeechifyToken(apiKey: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Credits
-// ---------------------------------------------------------------------------
-
-/**
- * Atomically changes the balance using optimistic concurrency: the UPDATE only
- * succeeds if the balance is still the one we read, so parallel requests can
- * never overdraw an account. Returns false if the balance is insufficient.
- */
-async function adjustCredits(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  delta: number,
-): Promise<boolean> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { data: profile, error } = await admin
-      .from('users_profile')
-      .select('available_characters')
-      .eq('id', userId)
-      .single()
-    if (error || !profile) throw new Error('Profile lookup failed')
-
-    const next = profile.available_characters + delta
-    if (next < 0) return false
-
-    const { data: updated, error: updateError } = await admin
-      .from('users_profile')
-      .update({ available_characters: next })
-      .eq('id', userId)
-      .eq('available_characters', profile.available_characters)
-      .select('id')
-    if (updateError) throw new Error('Credit update failed')
-    if (updated && updated.length > 0) return true
-    // Someone else changed the balance in between, retry.
-  }
-  throw new Error('Could not update credits, please retry')
-}
-
-/** Counts the billable characters of an SSML document (tags stripped, entities decoded). */
-function countBillableCharacters(ssml: string): number {
-  return ssml
-    .replace(/<[^>]*>/g, '')
-    .replace(/&(amp|lt|gt|quot|apos);/g, '_')
-    .length
-}
-
-// ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
@@ -129,7 +81,7 @@ Deno.serve(async (req) => {
       return json(req, { error: 'Server configuration error' }, 500)
     }
 
-    // Service client: bypasses RLS, used for credit bookkeeping only.
+    // Service client: bypasses RLS, used for credit bookkeeping and logging only.
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
 
     const { data: { user }, error: authError } = await admin.auth.getUser(token)
@@ -151,66 +103,46 @@ Deno.serve(async (req) => {
       return json(req, voices)
     }
 
-    // 3. POST: generate speech
-    let body: Record<string, unknown>
+    // 3. POST: validate
+    let body: unknown
     try {
       body = await req.json()
     } catch {
       return json(req, { error: 'Invalid JSON body' }, 400)
     }
 
-    const { input, voice_id, language, model, action = 'generation', project_id } = body
-
-    if (typeof input !== 'string' || !input.trim() || typeof voice_id !== 'string' || !voice_id) {
-      return json(req, { error: 'Missing required fields' }, 400)
-    }
-    if (input.length > MAX_INPUT_LENGTH || voice_id.length > MAX_VOICE_ID_LENGTH) {
-      return json(req, { error: 'Input too long' }, 400)
-    }
-    if (typeof model !== 'string' || !ALLOWED_MODELS.has(model)) {
-      return json(req, { error: 'Unsupported model' }, 400)
-    }
-    if (typeof language !== 'string' || !LOCALE_RE.test(language)) {
-      return json(req, { error: 'Invalid language' }, 400)
-    }
-    if (typeof action !== 'string' || !ALLOWED_ACTIONS.has(action)) {
-      return json(req, { error: 'Invalid action' }, 400)
-    }
-
-    const charCount = countBillableCharacters(input)
-    if (charCount === 0) return json(req, { error: 'Nothing to synthesize' }, 400)
+    const parsed = parseGenerateRequest(body)
+    if (!parsed.ok) return json(req, { error: parsed.error }, 400)
+    const request = parsed.value
 
     // Only attach the project to the log if it really belongs to the caller.
     let projectId: string | null = null
-    if (typeof project_id === 'string' && UUID_RE.test(project_id)) {
+    if (request.projectId) {
       const { data: project } = await admin
         .from('projects')
         .select('id')
-        .eq('id', project_id)
+        .eq('id', request.projectId)
         .eq('user_id', user.id)
         .maybeSingle()
       projectId = project?.id ?? null
     }
 
-    const { data: profile, error: profileError } = await admin
-      .from('users_profile')
-      .select('is_banned')
-      .eq('id', user.id)
-      .single()
-    if (profileError || !profile) return json(req, { error: 'User profile not found' }, 404)
-    if (profile.is_banned) return json(req, { error: 'Account suspended' }, 403)
-
-    // 4. Reserve credits first, refund if generation fails
-    if (!(await adjustCredits(admin, user.id, -charCount))) {
-      return json(req, { error: 'Insufficient credits' }, 402)
+    // 4. Reserve credits atomically (also checks suspension and the per-minute rate limit)
+    const { data: reservationId, error: reserveError } = await admin.rpc('reserve_credits', {
+      p_user_id: user.id,
+      p_amount: request.billableCharacters,
+      p_max_per_minute: MAX_REQUESTS_PER_MINUTE,
+    })
+    if (reserveError || !reservationId) {
+      const failure = mapReserveError(reserveError ?? {})
+      if (failure.status === 500) console.error('reserve_credits failed:', reserveError)
+      return json(req, { error: failure.message }, failure.status)
     }
 
+    // Idempotent in SQL; anything that still fails is refunded by the scheduled reconciliation.
     const refund = async () => {
-      try {
-        await adjustCredits(admin, user.id, charCount)
-      } catch (e) {
-        console.error(`Refund of ${charCount} characters failed for user ${user.id}:`, e)
-      }
+      const { error } = await admin.rpc('refund_credits', { p_reservation_id: reservationId })
+      if (error) console.error(`Refund of reservation ${reservationId} failed:`, error)
     }
 
     // 5. Call Speechify
@@ -220,16 +152,19 @@ Deno.serve(async (req) => {
       const speechifyRes = await fetch(`${SPEECHIFY_BASE}/audio/speech`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input, voice_id, language, model }),
+        body: JSON.stringify({
+          input: request.input,
+          voice_id: request.voiceId,
+          language: request.language,
+          model: request.model,
+        }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
 
       if (!speechifyRes.ok) {
         await refund()
         const details = await speechifyRes.json().catch(() => ({}))
-        // Keep 4xx (e.g. 400 for unsupported SSML) so the client can fall back; mask 5xx as 502.
-        const status = speechifyRes.status >= 400 && speechifyRes.status < 500 ? speechifyRes.status : 502
-        return json(req, { error: 'Speechify generation failed', details }, status)
+        return json(req, { error: 'Speechify generation failed', details }, mapSpeechifyStatus(speechifyRes.status))
       }
       audioData = await speechifyRes.json()
     } catch (err) {
@@ -238,12 +173,21 @@ Deno.serve(async (req) => {
       return json(req, { error: 'Speech service unavailable' }, 502)
     }
 
-    // 6. Usage log (best effort, must not fail the request)
+    // 6. Settle. If this fails the reservation stays pending and would be refunded later,
+    //    so it is retried before the response is returned.
+    let settled = false
+    for (let attempt = 0; attempt < SETTLE_ATTEMPTS && !settled; attempt++) {
+      const { error } = await admin.rpc('settle_credits', { p_reservation_id: reservationId })
+      settled = !error
+      if (error) console.error(`Settling reservation ${reservationId} failed (attempt ${attempt + 1}):`, error)
+    }
+
+    // 7. Usage log (best effort, must not fail the request)
     const { error: logError } = await admin.from('usage_logs').insert([{
       user_id: user.id,
-      character_count: charCount,
-      action_type: action,
-      language,
+      character_count: request.billableCharacters,
+      action_type: request.action,
+      language: request.language,
       project_id: projectId,
     }])
     if (logError) console.error('Usage log insert failed:', logError)
