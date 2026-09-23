@@ -243,7 +243,6 @@ Deno.serve(async (req) => {
       user_id: user.id,
       character_count: charCount,
       action_type: action,
-      voice_id,
       language,
       project_id: projectId,
     }])
