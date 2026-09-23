@@ -32,6 +32,7 @@ npm run dev               # http://localhost:3000
 1. Apply the SQL files in [supabase/migrations](supabase/migrations) in filename order
    (SQL editor or `supabase db push`). The `protect_profile_columns` migration is required:
    it stops users from editing their own credits, ban flag or role through the API.
+   `admin_dashboard_stats` provides the admin dashboard numbers (aggregated in the database).
 2. Set the Edge Function secrets and deploy it:
 
    ```bash
@@ -63,7 +64,8 @@ src/
     Dashboard/             project list
     Profile/               usage stats and account settings
     Workspace/             editor; its own widgets live in Workspace/components
-    Admin/                 admin login, layout, users, logs, settings
+    Admin/                 admin login, layout, users, logs, settings (one lazy-loaded chunk,
+                           its CSS is scoped under .admin-layout)
   components/              shared UI (Accordion, Modal, ConfirmModal, CustomSelect, Header, ...)
   hooks/                   useAuth, useSpeechify, useAudioPlayer, useVoiceSettings, useConfirm
   services/                supabase client, speechifyService (Edge Function client), audioStorage
@@ -79,5 +81,5 @@ supabase/
 
 - `VITE_*` variables are embedded into the browser bundle. Only the Supabase URL and anon key
   belong there. Never put the Speechify key in a `VITE_*` variable.
-- Global CSS is shared between pages (there are no CSS modules), so pick unique class names
-  when adding styles.
+- Global CSS is shared between the user-facing pages (there are no CSS modules), so pick unique
+  class names when adding styles. Admin styles must stay under `.admin-layout`.

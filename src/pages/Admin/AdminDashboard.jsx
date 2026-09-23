@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
-import { Users, Activity, Database, Zap, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { Users, Activity, Database, Zap, TrendingUp } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -23,94 +23,40 @@ export default function AdminDashboard() {
   const COLORS = ['#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#14B8A6'];
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    let cancelled = false;
 
-  const fetchStats = async () => {
-    try {
-      const { count: userCount } = await supabase
-        .from('users_profile')
-        .select('*', { count: 'exact', head: true });
+    (async () => {
+      try {
+        // All aggregation happens in the database (see the admin_dashboard_stats migration).
+        const { data, error } = await supabase.rpc('admin_dashboard_stats', { days: 14 });
+        if (error) throw error;
+        if (cancelled) return;
 
-      const { count: apiCalls } = await supabase
-        .from('usage_logs')
-        .select('*', { count: 'exact', head: true })
-        .in('action_type', ['generation', 'preview']);
-
-      const { count: cacheEntries } = await supabase
-        .from('audio_cache')
-        .select('*', { count: 'exact', head: true });
-
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const { data: dauData } = await supabase
-        .from('usage_logs')
-        .select('user_id')
-        .gte('created_at', yesterday.toISOString());
-      const dauCount = dauData ? new Set(dauData.map(log => log.user_id)).size : 0;
-
-      setStats({
-        totalUsers: userCount || 0,
-        apiCalls: apiCalls || 0,
-        cacheHits: cacheEntries || 0,
-        dailyActive: dauCount
-      });
-
-      // Fetch real log data for the last 14 days
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-
-      const { data: recentLogs } = await supabase
-        .from('usage_logs')
-        .select('created_at, character_count, language')
-        .in('action_type', ['generation', 'preview'])
-        .gte('created_at', fourteenDaysAgo.toISOString());
-
-      if (recentLogs) {
-        // Initialize 14 days array with 0
-        const dailyData = {};
-        const langDataMap = {};
-
-        for (let i = 13; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          dailyData[dateStr] = 0;
-        }
-
-        // Group logs by day and by language
-        recentLogs.forEach(log => {
-          const d = new Date(log.created_at);
-          const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          if (dailyData[dateStr] !== undefined) {
-            dailyData[dateStr] += log.character_count || 0;
-          }
-
-          if (log.language) {
-            langDataMap[log.language] = (langDataMap[log.language] || 0) + (log.character_count || 0);
-          }
+        setStats({
+          totalUsers: data.total_users,
+          apiCalls: data.api_calls,
+          cacheHits: data.cached_files,
+          dailyActive: data.daily_active
         });
 
-        const formattedChartData = Object.keys(dailyData).map(dateStr => ({
-          name: dateStr,
-          characters: dailyData[dateStr]
-        }));
+        // 'YYYY-MM-DD' is parsed as a local date so the label does not shift by timezone.
+        setChartData(data.daily_characters.map(({ day, characters }) => ({
+          name: new Date(`${day}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          characters
+        })));
 
-        const formattedPieData = Object.keys(langDataMap).map(lang => ({
-          name: lang,
-          value: langDataMap[lang]
-        })).sort((a, b) => b.value - a.value).slice(0, 6); // Top 6 languages
-
-        setChartData(formattedChartData);
-        setPieData(formattedPieData.length > 0 ? formattedPieData : [{ name: 'No data', value: 1 }]);
+        const languages = data.languages.map(({ language, characters }) => ({ name: language, value: characters }));
+        setPieData(languages.length > 0 ? languages : [{ name: 'No data', value: 1 }]);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) notify.error(err, 'Failed to load dashboard stats');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-      notify.error(err, 'Failed to load dashboard stats');
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
 
   if (loading) return <LoadingScreen text="Loading dashboard..." />;
 
