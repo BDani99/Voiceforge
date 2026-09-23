@@ -28,3 +28,19 @@ dist-ssr
 .env.*
 !.env.example
 
+
+# Build / tooling caches
+.vite
+*.tsbuildinfo
+coverage
+
+# Supabase CLI local state
+supabase/.temp
+supabase/.branches
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# Claude Code local settings
+.claude/settings.local.json
