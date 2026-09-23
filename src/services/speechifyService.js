@@ -1,9 +1,9 @@
 import { supabase } from './supabase';
 import { buildSSML } from '../utils/ssml';
 import { concatenateAudio } from '../utils/audioProcessing';
+import { splitIntoChunks, MAX_CHARS_PER_REQUEST } from '../utils/text';
 
 const FUNCTION_NAME = 'generate-speech';
-const MAX_CHARS_PER_REQUEST = 2000;
 const MAX_CONCURRENT_REQUESTS = 2; // keeps Speechify from answering 429
 const MAX_CACHE_ENTRIES = 50;
 const ENGLISH_LOCALES = ['en-US', 'en-GB'];
@@ -40,36 +40,6 @@ function base64ToBlob(base64Data, contentType) {
   } catch (error) {
     throw new Error(`Failed to decode audio data: ${error.message}`);
   }
-}
-
-/** Splits text into chunks of at most `maxLength`, preferring sentence boundaries. */
-export function splitIntoChunks(text, maxLength = MAX_CHARS_PER_REQUEST) {
-  const sentences = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) || [text];
-  const chunks = [];
-  let current = '';
-
-  const flush = () => {
-    if (current.trim()) chunks.push(current.trim());
-    current = '';
-  };
-
-  for (const sentence of sentences) {
-    if ((current + sentence).length <= maxLength) {
-      current += sentence;
-      continue;
-    }
-    flush();
-    // A single sentence longer than the limit has to be cut hard.
-    let rest = sentence;
-    while (rest.length > maxLength) {
-      chunks.push(rest.slice(0, maxLength).trim());
-      rest = rest.slice(maxLength);
-    }
-    current = rest;
-  }
-  flush();
-
-  return chunks;
 }
 
 class SpeechifyService {
