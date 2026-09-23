@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Play, Pause, Loader2, Mic, Check, Volume2, Trash2 } from 'lucide-react';
-import audioCrossfader from '../../../../utils/audioCrossfader';
 import './ParagraphControl.css';
 
 /**
@@ -22,11 +21,7 @@ function ParagraphControl({
   globalDefaults,
   currentEmotion,
   isFirstParagraph = false,
-  useFadeTransitions = true,
-  globalAudio,
-  isPlayingAll,
-  currentPlayingIndex,
-  stopGlobalPlay
+  globalAudio
 }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -270,7 +265,7 @@ ParagraphControl.propTypes = {
   }).isRequired,
   currentEmotion: PropTypes.string,
   isFirstParagraph: PropTypes.bool,
-  useFadeTransitions: PropTypes.bool,
+  globalAudio: PropTypes.func,
 };
 
 export default ParagraphControl;

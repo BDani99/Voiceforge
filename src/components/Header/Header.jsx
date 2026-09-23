@@ -13,7 +13,7 @@ function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs })
   return (
     <header className="app-header">
       <div className="header-left">
-        <button className="back-to-dashboard-btn" onClick={() => navigate('/dashboard')} title="Back to Dashboard">
+        <button className="back-to-dashboard-btn" onClick={() => navigate('/projects')} title="Back to Dashboard">
           <ArrowLeft size={20} />
         </button>
         <div className="logo">

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import audioCrossfader from '../utils/audioCrossfader';
-import speechifyService from '../services/speechifyService';
+import { concatenateAudio } from '../utils/audioProcessing';
+import { fetchAudioBlob } from '../services/audioStorage';
 
 export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) => {
   const { 
@@ -12,9 +12,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
   const {
     useParagraphGap,
     paragraphGapPause,
-    useFadeTransitions,
-    fadeInDuration,
-    fadeOutDuration
+    useFadeTransitions
   } = settings;
 
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -52,8 +50,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     if (!audioBlob && paragraph?.isGenerated && paragraph?.audioUrl) {
       console.log(`📥 Fetching cached audio blob from URL for paragraph ${nextIndex + 1}`);
       try {
-        const response = await fetch(paragraph.audioUrl);
-        audioBlob = await response.blob();
+        audioBlob = await fetchAudioBlob(paragraph.audioUrl);
       } catch (e) {
         console.error('Failed to fetch audio from URL, regenerating...', e);
         audioBlob = await generateParagraphAudio(nextIndex, false);
@@ -65,18 +62,10 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
 
     if (audioBlob && !isStoppingRef.current) {
       try {
-        let audio;
-        if (useFadeTransitions) {
-          audio = await audioCrossfader.playWithFade(
-            audioBlob,
-            fadeInDuration / 1000,
-            fadeOutDuration / 1000
-          );
-        } else {
-          const url = URL.createObjectURL(audioBlob);
-          audio = new Audio(url);
-          audio._blobUrl = url;
-        }
+        // Fades are already baked into the stored audio at generation time.
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        audio._blobUrl = url;
 
         currentAudioRef.current = audio;
 
@@ -124,7 +113,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     } else if (!isStoppingRef.current) {
       playNextInQueue();
     }
-  }, [paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause, useFadeTransitions, fadeInDuration, fadeOutDuration, isGlobalMode]);
+  }, [paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause]);
 
   const handlePlayParagraph = useCallback(async (index) => {
     if (activeIndex === index) {
@@ -210,7 +199,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     setIsGlobalMode(true);
     audioQueueRef.current = newQueue.slice(1);
     playNextInQueue(newQueue[0]);
-  }, [paragraphs, playNextInQueue, isPlaying]);
+  }, [paragraphs, playNextInQueue]);
 
   const handleExportAll = useCallback(async () => {
     if (paragraphs.length === 0) {
@@ -256,8 +245,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
         if (!audioBlob && p.isGenerated && p.audioUrl) {
           console.log(`📥 Fetching stored audio for paragraph ${i + 1}`);
           try {
-            const response = await fetch(p.audioUrl);
-            audioBlob = await response.blob();
+            audioBlob = await fetchAudioBlob(p.audioUrl);
           } catch (e) {
             console.error('Failed to fetch from URL, regenerating...', e);
             audioBlob = await generateParagraphAudio(i, false);
@@ -278,15 +266,16 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
         throw new Error('No audio generated');
       }
 
-      const finalBlob = await speechifyService.concatenateAudioBlobs(
+      const finalBlob = await concatenateAudio(
         audioBlobs,
         useParagraphGap ? paragraphGapPause : 0
       );
 
+      const extension = finalBlob.type === 'audio/wav' ? 'wav' : 'mp3';
       const url = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `voiceforge-${Date.now()}.mp3`;
+      a.download = `voiceforge-${Date.now()}.${extension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -297,7 +286,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     } finally {
       setIsLoading(false);
     }
-  }, [paragraphs, generateParagraphAudio, setError, setIsLoading, useFadeTransitions, useParagraphGap, paragraphGapPause]);
+  }, [paragraphs, generateParagraphAudio, setError, setIsLoading, showConfirm, useFadeTransitions, useParagraphGap, paragraphGapPause]);
 
   const resetAudioPlayer = useCallback(() => {
     isStoppingRef.current = true;

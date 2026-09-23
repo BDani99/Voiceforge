@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Volume2, Settings2, Sliders, X, BookOpen } from 'lucide-react';
+import { Volume2, Settings2, X, BookOpen } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, EMOTION_OPTIONS, EMPHASIS_OPTIONS } from '../../../../constants/voiceConstants';
 import Dictionary from '../Dictionary/Dictionary';
 import Accordion from '../../../../components/Accordion/Accordion';
@@ -30,7 +30,6 @@ function RightPanel({
   setUseParagraphGap,
   paragraphGapPause,
   setParagraphGapPause,
-  globalCustomReplacements,
   handleCustomReplacementsChange,
   error,
   voiceSettingsComponent,
@@ -283,7 +282,6 @@ RightPanel.propTypes = {
   setUseParagraphGap: PropTypes.func.isRequired,
   paragraphGapPause: PropTypes.number.isRequired,
   setParagraphGapPause: PropTypes.func.isRequired,
-  globalCustomReplacements: PropTypes.string.isRequired,
   handleCustomReplacementsChange: PropTypes.func.isRequired,
   error: PropTypes.string,
   voiceSettingsComponent: PropTypes.node,

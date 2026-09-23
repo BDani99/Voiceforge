@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { notify } from '../../utils/notificationService';
 import { Type, X, Plus } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../../services/supabase';
+import { useParams } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import VoiceSettings from './components/VoiceSettings/VoiceSettings';
 import RightPanel from './components/RightPanel/RightPanel';
@@ -18,7 +17,6 @@ import './Workspace.css';
 
 function Workspace() {
   const { projectId } = useParams();
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
   // Custom hooks for business logic
@@ -26,22 +24,29 @@ function Workspace() {
   const voiceSettings = useVoiceSettings();
   const speechify = useSpeechify(voiceSettings, projectId);
   const audioPlayer = useAudioPlayer(speechify, voiceSettings, setIsLoading, confirm);
-
-
+  const isBatchRunningRef = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = async (e) => {
-      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
-      
+      // Space must keep its normal meaning while typing or on a focused control.
+      const isInteractive = e.target.isContentEditable
+        || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName);
+
       if (e.ctrlKey && e.key === 'Enter') {
         // Generate all ungenerated
+        if (e.repeat || isBatchRunningRef.current) return;
+        isBatchRunningRef.current = true;
         notify.info('Generating all blocks...');
-        for (let i = 0; i < speechify.paragraphs.length; i++) {
-          if (speechify.paragraphs[i].text.trim() && !speechify.paragraphs[i].isGenerated) {
-            await speechify.generateParagraphAudio(i, false);
+        try {
+          for (let i = 0; i < speechify.paragraphs.length; i++) {
+            if (speechify.paragraphs[i].text.trim() && !speechify.paragraphs[i].isGenerated) {
+              await speechify.generateParagraphAudio(i, false);
+            }
           }
+        } finally {
+          isBatchRunningRef.current = false;
         }
-      } else if (e.code === 'Space' && !isInput) {
+      } else if (e.code === 'Space' && !isInteractive) {
         e.preventDefault();
         audioPlayer.handlePlayAll();
       } else if (e.ctrlKey && e.key === 's') {
@@ -60,8 +65,6 @@ function Workspace() {
     window.addEventListener('speechify-fallback-warning', handleFallback);
     return () => window.removeEventListener('speechify-fallback-warning', handleFallback);
   }, []);
-
-
 
   // Derived state
   const totalParagraphs = speechify.paragraphs.filter(p => p.text.trim()).length;
@@ -176,11 +179,7 @@ function Workspace() {
                         globalDefaults={voiceSettings.globalDefaults}
                         currentEmotion={voiceSettings.emotion}
                         isFirstParagraph={index === 0}
-                        useFadeTransitions={voiceSettings.useFadeTransitions}
                         globalAudio={audioPlayer.getGlobalAudio}
-                        isPlayingAll={audioPlayer.isPlayingAll}
-                        currentPlayingIndex={audioPlayer.currentPlayingIndex}
-                        stopGlobalPlay={audioPlayer.resetAudioPlayer}
                       />
                     ))}
                   </>
@@ -211,7 +210,6 @@ function Workspace() {
             setUseParagraphGap={voiceSettings.setUseParagraphGap}
             paragraphGapPause={voiceSettings.paragraphGapPause}
             setParagraphGapPause={voiceSettings.setParagraphGapPause}
-            globalCustomReplacements={voiceSettings.globalCustomReplacements}
             handleCustomReplacementsChange={voiceSettings.handleCustomReplacementsChange}
             error={speechify.error}
             voiceSettingsComponent={
