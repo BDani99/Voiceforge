@@ -1,23 +1,33 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { notify } from '../utils/notificationService';
+import type { Tables } from '../types/aliases';
+
+export type DictionaryEntry = Tables<'dictionaries'>;
 
 /** Serialises entries into the "word -> pronunciation" lines parseCustomReplacements understands. */
-const toReplacementText = (entries) => entries
+export const toReplacementText = (entries: DictionaryEntry[]): string => entries
   .map((e) => `${e.original_word} -> ${e.replacement_word}`)
   .join('\n');
 
 // Sorted so the text (and therefore the audio cache hash) does not depend on database row order.
-const sortEntries = (entries) => [...entries].sort((a, b) => (
+export const sortEntries = (entries: DictionaryEntry[]): DictionaryEntry[] => [...entries].sort((a, b) => (
   a.original_word.localeCompare(b.original_word) || a.replacement_word.localeCompare(b.replacement_word)
 ));
+
+export interface DictionaryApi {
+  entries: DictionaryEntry[];
+  loading: boolean;
+  addEntry: (originalWord: string, replacementWord: string) => Promise<boolean>;
+  deleteEntry: (id: string) => Promise<void>;
+}
 
 /**
  * The user's pronunciation dictionary. It is loaded as soon as the workspace opens, so
  * generation always uses it, and every change is reported to `onChange` as replacement text.
  */
-export const useDictionary = (onChange) => {
-  const [entries, setEntries] = useState([]);
+export const useDictionary = (onChange: (replacementText: string) => void): DictionaryApi => {
+  const [entries, setEntries] = useState<DictionaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const onChangeRef = useRef(onChange);
@@ -25,7 +35,7 @@ export const useDictionary = (onChange) => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
-  const apply = useCallback((next) => {
+  const apply = useCallback((next: DictionaryEntry[]) => {
     const sorted = sortEntries(next);
     setEntries(sorted);
     onChangeRef.current(toReplacementText(sorted));
@@ -34,7 +44,7 @@ export const useDictionary = (onChange) => {
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
@@ -44,7 +54,7 @@ export const useDictionary = (onChange) => {
       if (error) {
         notify.error(error, 'Could not load your dictionary. Reload the page before generating audio.');
       } else {
-        apply(data || []);
+        apply(data);
       }
       setLoading(false);
     })();
@@ -52,16 +62,19 @@ export const useDictionary = (onChange) => {
     return () => { cancelled = true; };
   }, [apply]);
 
-  const addEntry = useCallback(async (originalWord, replacementWord) => {
+  const addEntry = useCallback(async (originalWord: string, replacementWord: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+
       const { data, error } = await supabase
         .from('dictionaries')
-        .insert([{ user_id: user.id, original_word: originalWord, replacement_word: replacementWord }])
-        .select();
+        .insert({ user_id: user.id, original_word: originalWord, replacement_word: replacementWord })
+        .select()
+        .single();
       if (error) throw error;
 
-      apply([...entries, data[0]]);
+      apply([...entries, data]);
       notify.success('Word added to dictionary');
       return true;
     } catch (err) {
@@ -70,7 +83,7 @@ export const useDictionary = (onChange) => {
     }
   }, [entries, apply]);
 
-  const deleteEntry = useCallback(async (id) => {
+  const deleteEntry = useCallback(async (id: string) => {
     try {
       const { error } = await supabase.from('dictionaries').delete().eq('id', id);
       if (error) throw error;

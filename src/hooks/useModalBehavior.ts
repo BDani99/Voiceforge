@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -6,7 +6,11 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), in
  * Accessibility behaviour shared by all dialogs: Escape closes, Tab stays inside the dialog,
  * the page behind does not scroll and focus returns to where it was when the dialog closes.
  */
-export function useModalBehavior(isOpen, onClose, containerRef) {
+export function useModalBehavior(
+  isOpen: boolean,
+  onClose: () => void,
+  containerRef: RefObject<HTMLElement | null>,
+): void {
   // Kept in a ref so a new callback identity on every render does not re-run the effect
   // (which would move focus while the user is typing).
   const onCloseRef = useRef(onClose);
@@ -24,10 +28,10 @@ export function useModalBehavior(isOpen, onClose, containerRef) {
 
     // Respect an input that already grabbed focus through autoFocus.
     if (!container.contains(document.activeElement)) {
-      (container.querySelector(FOCUSABLE) ?? container).focus();
+      (container.querySelector<HTMLElement>(FOCUSABLE) ?? container).focus();
     }
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
         onCloseRef.current();
@@ -35,7 +39,7 @@ export function useModalBehavior(isOpen, onClose, containerRef) {
       }
       if (e.key !== 'Tab') return;
 
-      const items = [...container.querySelectorAll(FOCUSABLE)];
+      const items = [...container.querySelectorAll<HTMLElement>(FOCUSABLE)];
       if (items.length === 0) {
         e.preventDefault();
         return;
@@ -44,10 +48,10 @@ export function useModalBehavior(isOpen, onClose, containerRef) {
       const last = items[items.length - 1];
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
-        last.focus();
+        last?.focus();
       } else if (!e.shiftKey && document.activeElement === last) {
         e.preventDefault();
-        first.focus();
+        first?.focus();
       }
     };
 

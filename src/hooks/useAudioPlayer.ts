@@ -1,130 +1,144 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { concatenateAudio } from '../utils/audioProcessing';
 import { fetchAudioBlob } from '../services/audioStorage';
+import { getErrorMessage } from '../utils/notificationService';
+import type { ConfirmFn } from './useConfirm';
+import type { SpeechifyApi } from './useSpeechify';
+import type { VoiceSettings } from './useVoiceSettings';
 
-export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) => {
-  const { 
-    paragraphs, 
-    generateParagraphAudio, 
-    setError 
-  } = speechify;
+type Timer = ReturnType<typeof setTimeout>;
 
-  const {
-    useParagraphGap,
-    paragraphGapPause,
-    useFadeTransitions
-  } = settings;
+// Object URLs created for playback, released when the element ends, fails or is replaced.
+const objectUrls = new WeakMap<HTMLAudioElement, string>();
+
+function releaseObjectUrl(audio: HTMLAudioElement | null): void {
+  const url = audio ? objectUrls.get(audio) : undefined;
+  if (audio && url) {
+    URL.revokeObjectURL(url);
+    objectUrls.delete(audio);
+  }
+}
+
+/** Indexes of the paragraphs that contain text. */
+const playableIndexes = (paragraphs: { text: string }[]): number[] =>
+  paragraphs.flatMap((p, i) => (p.text.trim() ? [i] : []));
+
+export const useAudioPlayer = (
+  speechify: Pick<SpeechifyApi, 'paragraphs' | 'generateParagraphAudio' | 'setError'>,
+  settings: Pick<VoiceSettings, 'useParagraphGap' | 'paragraphGapPause' | 'useFadeTransitions'>,
+  setIsLoading: (loading: boolean) => void,
+  showConfirm: ConfirmFn,
+) => {
+  const { paragraphs, generateParagraphAudio, setError } = speechify;
+  const { useParagraphGap, paragraphGapPause, useFadeTransitions } = settings;
 
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGlobalMode, setIsGlobalMode] = useState(false);
 
-  const audioQueueRef = useRef([]);
-  const currentAudioRef = useRef(null);
+  const audioQueueRef = useRef<number[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const isStoppingRef = useRef(false);
-  const paragraphGapTimeoutRef = useRef(null);
+  const paragraphGapTimeoutRef = useRef<Timer | null>(null);
 
   // Playback callbacks chain themselves from audio events, so they must always see the
   // latest paragraphs and functions instead of the render they were created in.
-  const latest = useRef({});
+  const latest = useRef({ paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause });
   useEffect(() => {
     latest.current = { paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause };
   });
 
   const getGlobalAudio = useCallback(() => currentAudioRef.current, []);
 
-  const playNextInQueue = useCallback(async (startIndex = null) => {
+  const clearGapTimer = useCallback(() => {
+    if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
+    paragraphGapTimeoutRef.current = null;
+  }, []);
+
+  const playNextInQueue = useCallback(async (startIndex: number | null = null): Promise<void> => {
     if (isStoppingRef.current) return;
-    
-    let nextIndex;
+
+    let nextIndex: number;
     if (startIndex !== null) {
       nextIndex = startIndex;
     } else {
-      if (audioQueueRef.current.length === 0) {
+      const queued = audioQueueRef.current.shift();
+      if (queued === undefined) {
         setIsPlaying(false);
         return;
       }
-      nextIndex = audioQueueRef.current.shift();
+      nextIndex = queued;
     }
 
     setActiveIndex(nextIndex);
     setIsPlaying(true);
 
-    let audioBlob = latest.current.paragraphs[nextIndex]?.audioBlob;
     const paragraph = latest.current.paragraphs[nextIndex];
+    let audioBlob: Blob | null = paragraph?.audioBlob ?? null;
 
     // If already generated but blob not in memory, fetch it from the stored URL directly
-    if (!audioBlob && paragraph?.isGenerated && paragraph?.audioUrl) {
+    if (!audioBlob && paragraph?.isGenerated && paragraph.audioUrl) {
       try {
         audioBlob = await fetchAudioBlob(paragraph.audioUrl);
       } catch (e) {
         console.error('Failed to fetch audio from URL, regenerating...', e);
-        audioBlob = await latest.current.generateParagraphAudio(nextIndex, false);
       }
-    } else if (!audioBlob) {
-      audioBlob = await latest.current.generateParagraphAudio(nextIndex, false);
     }
+    audioBlob ??= await latest.current.generateParagraphAudio(nextIndex, false);
 
     if (audioBlob && !isStoppingRef.current) {
       try {
         // Fades are already baked into the stored audio at generation time.
         const url = URL.createObjectURL(audioBlob);
         const audio = new Audio(url);
-        audio._blobUrl = url;
+        objectUrls.set(audio, url);
 
         currentAudioRef.current = audio;
 
         audio.onended = () => {
-          if (audio._blobUrl) URL.revokeObjectURL(audio._blobUrl);
-          if (!isStoppingRef.current) {
-            if (audioQueueRef.current.length > 0) {
-              if (latest.current.useParagraphGap && latest.current.paragraphGapPause > 0) {
-                paragraphGapTimeoutRef.current = setTimeout(() => {
-                  playNextInQueue();
-                }, latest.current.paragraphGapPause);
-              } else {
-                playNextInQueue();
-              }
-            } else {
-              setIsPlaying(false);
-            }
+          releaseObjectUrl(audio);
+          if (isStoppingRef.current) return;
+
+          if (audioQueueRef.current.length === 0) {
+            setIsPlaying(false);
+          } else if (latest.current.useParagraphGap && latest.current.paragraphGapPause > 0) {
+            paragraphGapTimeoutRef.current = setTimeout(() => void playNextInQueue(), latest.current.paragraphGapPause);
+          } else {
+            void playNextInQueue();
           }
         };
 
         audio.onerror = () => {
-          if (audio._blobUrl) URL.revokeObjectURL(audio._blobUrl);
+          releaseObjectUrl(audio);
           latest.current.setError(`Error playing paragraph ${nextIndex + 1}`);
-          if (!isStoppingRef.current) playNextInQueue();
+          if (!isStoppingRef.current) void playNextInQueue();
         };
 
-        // Pre-generate next (only if truly not generated and not in storage)
-        if (audioQueueRef.current.length > 0 && !isStoppingRef.current) {
-          const upcomingIndex = audioQueueRef.current[0];
-          const upcomingParagraph = latest.current.paragraphs[upcomingIndex];
-          const needsPreGen = !upcomingParagraph?.isGenerated && !upcomingParagraph?.audioUrl;
-          if (needsPreGen) {
-            latest.current.generateParagraphAudio(upcomingIndex, false);
+        // Pre-generate the next paragraph (only if truly not generated and not in storage)
+        const upcomingIndex = audioQueueRef.current[0];
+        if (upcomingIndex !== undefined && !isStoppingRef.current) {
+          const upcoming = latest.current.paragraphs[upcomingIndex];
+          if (upcoming && !upcoming.isGenerated && !upcoming.audioUrl) {
+            void latest.current.generateParagraphAudio(upcomingIndex, false);
           }
         }
 
         await audio.play();
       } catch (err) {
-        latest.current.setError(`Failed to play audio: ${err.message}`);
-        if (currentAudioRef.current && currentAudioRef.current._blobUrl) {
-          URL.revokeObjectURL(currentAudioRef.current._blobUrl);
-        }
-        if (!isStoppingRef.current) playNextInQueue();
+        latest.current.setError(`Failed to play audio: ${getErrorMessage(err)}`);
+        releaseObjectUrl(currentAudioRef.current);
+        if (!isStoppingRef.current) void playNextInQueue();
       }
     } else if (!isStoppingRef.current) {
-      playNextInQueue();
+      void playNextInQueue();
     }
   }, []);
 
-  const handlePlayParagraph = useCallback(async (index) => {
+  const handlePlayParagraph = useCallback(async (index: number) => {
     if (activeIndex === index) {
       if (isPlaying) {
         // Pause current
-        if (currentAudioRef.current) currentAudioRef.current.pause();
+        currentAudioRef.current?.pause();
         setIsPlaying(false);
         isStoppingRef.current = true;
       } else {
@@ -137,74 +151,65 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
           // Play fresh
           setIsGlobalMode(false);
           audioQueueRef.current = [];
-          playNextInQueue(index);
+          void playNextInQueue(index);
         }
       }
     } else {
       // Play a different paragraph locally
       isStoppingRef.current = false;
-      if (currentAudioRef.current) currentAudioRef.current.pause();
-      if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
+      currentAudioRef.current?.pause();
+      clearGapTimer();
       setIsGlobalMode(false);
       audioQueueRef.current = [];
-      playNextInQueue(index);
+      void playNextInQueue(index);
     }
-  }, [activeIndex, isPlaying, playNextInQueue]);
+  }, [activeIndex, isPlaying, playNextInQueue, clearGapTimer]);
 
   const handlePlayAll = useCallback(() => {
     if (isGlobalMode && isPlaying) {
       // Pause Play All
-      if (currentAudioRef.current) currentAudioRef.current.pause();
+      currentAudioRef.current?.pause();
       setIsPlaying(false);
       isStoppingRef.current = true;
     } else if (isGlobalMode && !isPlaying && activeIndex !== -1) {
       // Resume Play All
       isStoppingRef.current = false;
       if (currentAudioRef.current) {
-        currentAudioRef.current.play();
+        void currentAudioRef.current.play();
         setIsPlaying(true);
       } else {
-        playNextInQueue(activeIndex);
+        void playNextInQueue(activeIndex);
       }
     } else {
       // Start Play All from beginning
       isStoppingRef.current = false;
-      if (currentAudioRef.current) currentAudioRef.current.pause();
-      if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
+      currentAudioRef.current?.pause();
+      clearGapTimer();
 
-      const validParagraphs = paragraphs
-        .map((p, i) => p.text.trim() ? i : null)
-        .filter(i => i !== null);
-
-      if (validParagraphs.length === 0) {
+      const [first, ...rest] = playableIndexes(paragraphs);
+      if (first === undefined) {
         setError('No paragraphs to play!');
         return;
       }
 
       setIsGlobalMode(true);
-      audioQueueRef.current = validParagraphs.slice(1);
-      playNextInQueue(validParagraphs[0]);
+      audioQueueRef.current = rest;
+      void playNextInQueue(first);
     }
-  }, [isGlobalMode, isPlaying, activeIndex, paragraphs, playNextInQueue, setError]);
+  }, [isGlobalMode, isPlaying, activeIndex, paragraphs, playNextInQueue, setError, clearGapTimer]);
 
-  const skipToParagraph = useCallback((index) => {
-    const validParagraphs = paragraphs
-      .map((p, i) => p.text.trim() ? i : null)
-      .filter(i => i !== null);
-
-    if (validParagraphs.length === 0) return;
-    
-    const newQueue = validParagraphs.filter(i => i >= index);
-    if (newQueue.length === 0) return;
+  const skipToParagraph = useCallback((index: number) => {
+    const [first, ...rest] = playableIndexes(paragraphs).filter((i) => i >= index);
+    if (first === undefined) return;
 
     isStoppingRef.current = false;
-    if (currentAudioRef.current) currentAudioRef.current.pause();
-    if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
-    
+    currentAudioRef.current?.pause();
+    clearGapTimer();
+
     setIsGlobalMode(true);
-    audioQueueRef.current = newQueue.slice(1);
-    playNextInQueue(newQueue[0]);
-  }, [paragraphs, playNextInQueue]);
+    audioQueueRef.current = rest;
+    void playNextInQueue(first);
+  }, [paragraphs, playNextInQueue, clearGapTimer]);
 
   const handleExportAll = useCallback(async () => {
     if (paragraphs.length === 0) {
@@ -212,9 +217,9 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
       return;
     }
 
-    const validParagraphs = paragraphs.filter(p => p.text.trim());
+    const validParagraphs = paragraphs.filter((p) => p.text.trim());
     const totalChars = validParagraphs.reduce((sum, p) => sum + p.text.length, 0);
-    const generatedCount = validParagraphs.filter(p => p.isGenerated).length;
+    const generatedCount = validParagraphs.filter((p) => p.isGenerated).length;
     const toGenerateCount = validParagraphs.length - generatedCount;
 
     const confirmed = await showConfirm({
@@ -230,21 +235,18 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
       cancelLabel: 'Cancel',
     });
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setIsLoading(true);
     setError('');
 
     try {
-      const audioBlobs = [];
+      const audioBlobs: Blob[] = [];
 
-      for (let i = 0; i < paragraphs.length; i++) {
-        if (!paragraphs[i].text.trim()) continue;
+      for (const [i, p] of paragraphs.entries()) {
+        if (!p.text.trim()) continue;
 
-        let audioBlob = paragraphs[i].audioBlob;
-        const p = paragraphs[i];
+        let audioBlob: Blob | null = p.audioBlob;
 
         // If generated and stored but blob not in memory, fetch directly from URL
         if (!audioBlob && p.isGenerated && p.audioUrl) {
@@ -252,25 +254,16 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
             audioBlob = await fetchAudioBlob(p.audioUrl);
           } catch (e) {
             console.error('Failed to fetch from URL, regenerating...', e);
-            audioBlob = await generateParagraphAudio(i, false);
           }
-        } else if (!audioBlob) {
-          audioBlob = await generateParagraphAudio(i, false);
         }
+        audioBlob ??= await generateParagraphAudio(i, false);
 
-        if (audioBlob) {
-          audioBlobs.push(audioBlob);
-        }
+        if (audioBlob) audioBlobs.push(audioBlob);
       }
 
-      if (audioBlobs.length === 0) {
-        throw new Error('No audio generated');
-      }
+      if (audioBlobs.length === 0) throw new Error('No audio generated');
 
-      const finalBlob = await concatenateAudio(
-        audioBlobs,
-        useParagraphGap ? paragraphGapPause : 0
-      );
+      const finalBlob = await concatenateAudio(audioBlobs, useParagraphGap ? paragraphGapPause : 0);
 
       const extension = finalBlob.type === 'audio/wav' ? 'wav' : 'mp3';
       const url = URL.createObjectURL(finalBlob);
@@ -281,9 +274,8 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
     } catch (err) {
-      setError('Export failed: ' + err.message);
+      setError(`Export failed: ${getErrorMessage(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -293,17 +285,15 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     isStoppingRef.current = true;
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
-      if (currentAudioRef.current._blobUrl) {
-        URL.revokeObjectURL(currentAudioRef.current._blobUrl);
-      }
+      releaseObjectUrl(currentAudioRef.current);
       currentAudioRef.current = null;
     }
-    if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
+    clearGapTimer();
     audioQueueRef.current = [];
     setActiveIndex(-1);
     setIsPlaying(false);
     setIsGlobalMode(false);
-  }, []);
+  }, [clearGapTimer]);
 
   return {
     isPlayingAll: isGlobalMode && isPlaying,
@@ -314,6 +304,8 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     skipToParagraph,
     handleExportAll,
     resetAudioPlayer,
-    getGlobalAudio
+    getGlobalAudio,
   };
 };
+
+export type AudioPlayerApi = ReturnType<typeof useAudioPlayer>;

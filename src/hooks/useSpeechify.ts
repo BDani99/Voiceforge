@@ -4,10 +4,12 @@ import { supabase } from '../services/supabase';
 import { findCachedAudio, storeAudio, fetchAudioBlob, getAudioHash } from '../services/audioStorage';
 import { applyFade } from '../utils/audioProcessing';
 import { notify, getErrorMessage } from '../utils/notificationService';
+import type { VoiceSettings } from './useVoiceSettings';
+import type { Paragraph, SsmlOptions, Voice } from '../types/models';
 
 const AUTOSAVE_DELAY_MS = 1500;
 
-const newParagraph = (text = '') => ({
+const newParagraph = (text = ''): Paragraph => ({
   id: crypto.randomUUID(),
   text: text.trim(),
   audioBlob: null,
@@ -16,12 +18,12 @@ const newParagraph = (text = '') => ({
   wasCached: false,
 });
 
-const STALE_AUDIO = { audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false };
+const STALE_AUDIO: Partial<Paragraph> = { audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false };
 
-const percent = (value) => `${value >= 0 ? '+' : ''}${value}%`;
+const percent = (value: number): string => `${value >= 0 ? '+' : ''}${value}%`;
 
 /** Translates the UI settings into the option object understood by buildSSML. */
-function buildSsmlOptions(settings, { preview = false } = {}) {
+function buildSsmlOptions(settings: VoiceSettings, { preview = false } = {}): SsmlOptions {
   const { globalDefaults: d } = settings;
 
   return {
@@ -50,13 +52,13 @@ function buildSsmlOptions(settings, { preview = false } = {}) {
   };
 }
 
-export const useSpeechify = (settings, projectId) => {
-  const [voices, setVoices] = useState([]);
+export const useSpeechify = (settings: VoiceSettings, projectId: string | undefined) => {
+  const [voices, setVoices] = useState<Voice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('en-US');
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [error, setError] = useState('');
-  const [paragraphs, setParagraphs] = useState(() => [newParagraph()]);
+  const [paragraphs, setParagraphs] = useState<Paragraph[]>(() => [newParagraph()]);
   const [generatingIndex, setGeneratingIndex] = useState(-1);
 
   // Auto-save must never run before the stored paragraphs were loaded, otherwise the
@@ -64,20 +66,20 @@ export const useSpeechify = (settings, projectId) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const isLoadedRef = useRef(false);
   const isInitializedRef = useRef(false);
-  const inFlightRef = useRef(new Map()); // paragraph id -> pending generation promise
+  const inFlightRef = useRef(new Map<string, Promise<Blob | null>>()); // paragraph id -> pending generation
   const latestParagraphsRef = useRef(paragraphs);
   const hasUnsavedChangesRef = useRef(false);
-  const saveChainRef = useRef(Promise.resolve());
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
   const generatedParagraphs = useMemo(() => {
-    const generated = new Set();
+    const generated = new Set<number>();
     paragraphs.forEach((p, index) => {
       if (p.isGenerated) generated.add(index);
     });
     return generated;
   }, [paragraphs]);
 
-  const patchParagraph = useCallback((id, patch) => {
+  const patchParagraph = useCallback((id: string, patch: Partial<Paragraph>) => {
     setParagraphs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }, []);
 
@@ -89,7 +91,7 @@ export const useSpeechify = (settings, projectId) => {
     isLoadedRef.current = false;
     setIsLoaded(false);
 
-    (async () => {
+    void (async () => {
       const { data, error: loadError } = await supabase
         .from('paragraphs')
         .select('*')
@@ -126,25 +128,28 @@ export const useSpeechify = (settings, projectId) => {
     try {
       const voiceList = await speechifyService.getVoices();
       setVoices(voiceList);
-      if (voiceList.length > 0) {
-        setSelectedVoice(voiceList[0].id);
-        if (voiceList[0].locale) setSelectedLanguage(voiceList[0].locale);
+      const [first] = voiceList;
+      if (first) {
+        setSelectedVoice(first.id);
+        if (first.locale) setSelectedLanguage(first.locale);
       }
     } catch (err) {
-      setError(`Failed to load voices: ${err.message}`);
+      setError(`Failed to load voices: ${getErrorMessage(err)}`);
     } finally {
       setIsLoadingVoices(false);
     }
   }, []);
 
   useEffect(() => {
-    loadVoices();
+    void loadVoices();
   }, [loadVoices]);
 
   // -------------------------------------------------------------- auto-save
 
-  const saveParagraphs = useCallback((list) => {
+  const saveParagraphs = useCallback((list: Paragraph[]) => {
     // Saves run one after another so an older snapshot can never overwrite a newer one.
+    if (!projectId) return saveChainRef.current;
+
     saveChainRef.current = saveChainRef.current.then(async () => {
       try {
         const rows = list.map((p, index) => ({
@@ -179,14 +184,14 @@ export const useSpeechify = (settings, projectId) => {
     if (!projectId || !isLoaded) return undefined;
 
     hasUnsavedChangesRef.current = true;
-    const timeoutId = setTimeout(() => saveParagraphs(paragraphs), AUTOSAVE_DELAY_MS);
+    const timeoutId = setTimeout(() => void saveParagraphs(paragraphs), AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timeoutId);
   }, [paragraphs, projectId, isLoaded, saveParagraphs]);
 
   // Flush pending edits when leaving the workspace.
   useEffect(() => () => {
     if (isLoadedRef.current && hasUnsavedChangesRef.current) {
-      saveParagraphs(latestParagraphsRef.current);
+      void saveParagraphs(latestParagraphsRef.current);
     }
   }, [saveParagraphs]);
 
@@ -199,17 +204,17 @@ export const useSpeechify = (settings, projectId) => {
     setParagraphs((prev) => prev.map((p) => ({ ...p, ...STALE_AUDIO })));
   }, []);
 
-  const handleVoiceChange = useCallback((voiceId) => {
+  const handleVoiceChange = useCallback((voiceId: string) => {
     setSelectedVoice(voiceId);
-    const voice = voices.find((v) => v.id === voiceId);
-    if (voice?.locale) {
+    const locale = voices.find((v) => v.id === voiceId)?.locale;
+    if (locale) {
       // Hungarian uses English fallback voices, so do not switch the language away from it.
-      setSelectedLanguage((current) => (current === 'hu-HU' ? current : voice.locale));
+      setSelectedLanguage((current) => (current === 'hu-HU' ? current : locale));
     }
     invalidateAllAudio();
   }, [voices, invalidateAllAudio]);
 
-  const handleLanguageChange = useCallback((langCode) => {
+  const handleLanguageChange = useCallback((langCode: string) => {
     setSelectedLanguage(langCode);
     const voiceForLang = voices.find((v) => v.locale === langCode);
     if (voiceForLang) setSelectedVoice(voiceForLang.id);
@@ -247,7 +252,7 @@ export const useSpeechify = (settings, projectId) => {
 
   // Dictionary changes invalidate audio too, but the first load is only the baseline:
   // audio generated earlier with the same dictionary must stay valid.
-  const dictionaryBaselineRef = useRef(null);
+  const dictionaryBaselineRef = useRef<string | null>(null);
   useEffect(() => {
     if (!settings.dictionaryLoaded) return;
     if (dictionaryBaselineRef.current === null) {
@@ -263,7 +268,7 @@ export const useSpeechify = (settings, projectId) => {
   // ------------------------------------------------------- paragraph editing
 
   // Only the first paragraph splits (pasting a long text there); all other paragraphs are kept.
-  const handleSplitText = useCallback((text) => {
+  const handleSplitText = useCallback((text: string) => {
     let parts = text.split(/\n\s*\n/).filter((p) => p.trim());
     if (parts.length <= 1) {
       const lines = text.split('\n').filter((p) => p.trim());
@@ -273,15 +278,12 @@ export const useSpeechify = (settings, projectId) => {
     setParagraphs((prev) => [...replacement, ...prev.slice(1)]);
   }, []);
 
-  const updateParagraph = useCallback((index, field, value) => {
-    setParagraphs((prev) => prev.map((p, i) => {
-      if (i !== index) return p;
-      // Editing the text makes any stored audio stale.
-      return field === 'text' ? { ...p, text: value, ...STALE_AUDIO } : { ...p, [field]: value };
-    }));
+  const updateParagraphText = useCallback((index: number, text: string) => {
+    // Editing the text makes any stored audio stale.
+    setParagraphs((prev) => prev.map((p, i) => (i === index ? { ...p, text, ...STALE_AUDIO } : p)));
   }, []);
 
-  const deleteParagraph = useCallback((index) => {
+  const deleteParagraph = useCallback((index: number) => {
     setParagraphs((prev) => {
       const remaining = prev.filter((_, i) => i !== index);
       return remaining.length > 0 ? remaining : [newParagraph()];
@@ -300,12 +302,13 @@ export const useSpeechify = (settings, projectId) => {
 
   // -------------------------------------------------------------- generation
 
-  const runGeneration = useCallback(async (index, forceRegenerate) => {
+  const runGeneration = useCallback(async (index: number, forceRegenerate: boolean): Promise<Blob> => {
     // Generating before the dictionary is known would ignore the user's pronunciations.
     if (!settings.dictionaryLoaded) {
       throw new Error('Your dictionary has not loaded yet. Please wait a moment or reload the page.');
     }
     const paragraph = paragraphs[index];
+    if (!paragraph) throw new Error('Paragraph not found');
     const { id } = paragraph;
 
     const ssmlOptions = buildSsmlOptions(settings);
@@ -354,9 +357,9 @@ export const useSpeechify = (settings, projectId) => {
     return audioBlob;
   }, [paragraphs, selectedVoice, selectedLanguage, settings, projectId, patchParagraph]);
 
-  const generateParagraphAudio = useCallback(async (index, forceRegenerate = false) => {
+  const generateParagraphAudio = useCallback(async (index: number, forceRegenerate = false): Promise<Blob | null> => {
     const paragraph = paragraphs[index];
-    if (!paragraph || !paragraph.text.trim()) return null;
+    if (!paragraph?.text.trim()) return null;
 
     if (paragraph.isGenerated && !forceRegenerate) {
       if (paragraph.audioBlob) return paragraph.audioBlob;
@@ -393,8 +396,8 @@ export const useSpeechify = (settings, projectId) => {
     return promise;
   }, [paragraphs, runGeneration, patchParagraph]);
 
-  const generatePreviewAudio = useCallback(async (text) => {
-    let url = null;
+  const generatePreviewAudio = useCallback(async (text: string) => {
+    let url: string | null = null;
     try {
       const audioBlob = await speechifyService.synthesize(
         text,
@@ -404,9 +407,10 @@ export const useSpeechify = (settings, projectId) => {
         { action: 'preview', projectId },
       );
 
-      url = URL.createObjectURL(audioBlob);
-      const audio = new Audio(url);
-      audio.onended = () => URL.revokeObjectURL(url);
+      const objectUrl = URL.createObjectURL(audioBlob);
+      url = objectUrl;
+      const audio = new Audio(objectUrl);
+      audio.onended = () => URL.revokeObjectURL(objectUrl);
       await audio.play();
     } catch (err) {
       if (url) URL.revokeObjectURL(url);
@@ -428,7 +432,7 @@ export const useSpeechify = (settings, projectId) => {
     handleVoiceChange,
     handleLanguageChange,
     handleSplitText,
-    updateParagraph,
+    updateParagraphText,
     deleteParagraph,
     addParagraphAtStart,
     generateParagraphAudio,
@@ -436,3 +440,4 @@ export const useSpeechify = (settings, projectId) => {
     resetSpeechify,
   };
 };
+export type SpeechifyApi = ReturnType<typeof useSpeechify>;
