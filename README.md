@@ -30,9 +30,12 @@ npm run dev               # http://localhost:3000
 ## Supabase setup
 
 1. Apply the SQL files in [supabase/migrations](supabase/migrations) in filename order
-   (SQL editor or `supabase db push`). The `protect_profile_columns` migration is required:
-   it stops users from editing their own credits, ban flag or role through the API.
-   `admin_dashboard_stats` provides the admin dashboard numbers (aggregated in the database).
+   (SQL editor or `supabase db push`). They are required, not optional:
+   - `harden_admin_and_rls`: admin rights come from `users_profile.role` only, profile
+     columns (credits, role, ban flag, email) cannot be edited from the browser, locked-down
+     `usage_logs`, `audio_cache` and `voiceovers` storage.
+   - `admin_dashboard_stats`: the admin dashboard numbers, aggregated in the database.
+   - `restrict_function_grants`: only the RPCs the app uses stay callable.
 2. Set the Edge Function secrets and deploy it:
 
    ```bash

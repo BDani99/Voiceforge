@@ -88,7 +88,7 @@ export default function AdminSettings() {
                 className="number-input"
               />
               <p className="help-text">
-                Number of characters granted automatically to every newly registered user. (Note: modifying the backend / Edge Function might also be needed to use this value in the registration hook).
+                Number of characters granted automatically to every newly registered user. Existing accounts are not changed.
               </p>
             </div>
             <button type="submit" disabled={saving} className="save-btn">
