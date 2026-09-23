@@ -37,14 +37,16 @@ export const useVoiceSettings = () => {
 
   const [emotion, setEmotion] = useState(() => loadState('emotion', ''));
   const [globalEmphasis, setGlobalEmphasis] = useState(() => loadState('globalEmphasis', ''));
-  const [globalCustomReplacements, setGlobalCustomReplacements] = useState(() => loadState('globalCustomReplacements', ''));
+  // The pronunciation dictionary lives in the database, not in localStorage: see useDictionary.
+  const [globalCustomReplacements, setGlobalCustomReplacements] = useState('');
+  const [dictionaryLoaded, setDictionaryLoaded] = useState(false);
 
   // Sync to LocalStorage on change
   useEffect(() => {
     const values = {
       globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause,
       useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion,
-      globalEmphasis, globalCustomReplacements,
+      globalEmphasis,
     };
     try {
       Object.entries(values).forEach(([key, value]) => {
@@ -53,7 +55,7 @@ export const useVoiceSettings = () => {
     } catch {
       // Storage can be full or blocked (private mode); settings then simply are not persisted.
     }
-  }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis, globalCustomReplacements]);
+  }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis]);
 
   const updateGlobalDefaults = useCallback((field, value) => {
     setGlobalDefaults(prev => {
@@ -73,11 +75,10 @@ export const useVoiceSettings = () => {
     }
   }, [globalEmphasis]);
 
-  const handleCustomReplacementsChange = useCallback((value) => {
-    if (globalCustomReplacements !== value) {
-      setGlobalCustomReplacements(value);
-    }
-  }, [globalCustomReplacements]);
+  const applyDictionary = useCallback((replacementText) => {
+    setGlobalCustomReplacements(replacementText);
+    setDictionaryLoaded(true);
+  }, []);
 
   const parseCustomReplacements = useCallback((replacements) => {
     if (!replacements.trim()) return {};
@@ -119,7 +120,6 @@ export const useVoiceSettings = () => {
     setFadeOutDuration(100);
     setEmotion('');
     setGlobalEmphasis('');
-    setGlobalCustomReplacements('');
   }, []);
 
   return {
@@ -146,7 +146,8 @@ export const useVoiceSettings = () => {
     globalEmphasis,
     handleEmphasisChange,
     globalCustomReplacements,
-    handleCustomReplacementsChange,
+    dictionaryLoaded,
+    applyDictionary,
     parseCustomReplacements,
     resetSettings
   };

@@ -1,90 +1,21 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '../../../../services/supabase';
-import { notify } from '../../../../utils/notificationService';
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { Plus, Trash2 } from 'lucide-react';
 import LoadingScreen from '../../../../components/LoadingScreen/LoadingScreen';
 import './Dictionary.css';
 
-export default function Dictionary({ onUpdateGlobal }) {
-  const [entries, setEntries] = useState([]);
+export default function Dictionary({ dictionary }) {
+  const { entries, loading, addEntry, deleteEntry } = dictionary;
   const [originalWord, setOriginalWord] = useState('');
   const [replacementWord, setReplacementWord] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  // Keep the latest callback in a ref so the initial fetch does not re-run when the parent re-renders.
-  const onUpdateGlobalRef = useRef(onUpdateGlobal);
-  useEffect(() => {
-    onUpdateGlobalRef.current = onUpdateGlobal;
-  }, [onUpdateGlobal]);
-
-  const updateParentHook = useCallback((data) => {
-    // Convert to the text format expected by parseCustomReplacements
-    const textFormat = data.map(d => `${d.original_word} -> ${d.replacement_word}`).join('\n');
-    onUpdateGlobalRef.current(textFormat);
-  }, []);
-
-  const fetchDictionary = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('dictionaries')
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
-      setEntries(data || []);
-      updateParentHook(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [updateParentHook]);
-
-  useEffect(() => {
-    fetchDictionary();
-  }, [fetchDictionary]);
-
-  const addEntry = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!originalWord.trim() || !replacementWord.trim()) return;
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase
-        .from('dictionaries')
-        .insert([{
-          user_id: user.id,
-          original_word: originalWord.trim(),
-          replacement_word: replacementWord.trim()
-        }])
-        .select();
-        
-      if (error) throw error;
-      const newEntries = [...entries, data[0]];
-      setEntries(newEntries);
+
+    if (await addEntry(originalWord.trim(), replacementWord.trim())) {
       setOriginalWord('');
       setReplacementWord('');
-      updateParentHook(newEntries);
-      notify.success('Word added to dictionary');
-    } catch (err) {
-      notify.error(err, 'Failed to add word');
-    }
-  };
-
-  const deleteEntry = async (id) => {
-    try {
-      const { error } = await supabase.from('dictionaries').delete().eq('id', id);
-      if (error) throw error;
-      
-      const newEntries = entries.filter(e => e.id !== id);
-      setEntries(newEntries);
-      updateParentHook(newEntries);
-      notify.success('Word removed');
-    } catch (err) {
-      notify.error(err, 'Failed to remove word');
     }
   };
 
@@ -93,22 +24,22 @@ export default function Dictionary({ onUpdateGlobal }) {
   return (
     <div className="dictionary-container">
       <h3>Custom Pronunciations</h3>
-      <form onSubmit={addEntry} className="dictionary-form">
-        <input 
-          placeholder="Original word" 
-          value={originalWord} 
-          onChange={(e) => setOriginalWord(e.target.value)} 
+      <form onSubmit={handleSubmit} className="dictionary-form">
+        <input
+          placeholder="Original word"
+          value={originalWord}
+          onChange={(e) => setOriginalWord(e.target.value)}
         />
-        <input 
-          placeholder="Pronounce as" 
-          value={replacementWord} 
-          onChange={(e) => setReplacementWord(e.target.value)} 
+        <input
+          placeholder="Pronounce as"
+          value={replacementWord}
+          onChange={(e) => setReplacementWord(e.target.value)}
         />
-        <button type="submit" disabled={!originalWord || !replacementWord}>
+        <button type="submit" disabled={!originalWord.trim() || !replacementWord.trim()}>
           <Plus size={16} /> Add
         </button>
       </form>
-      
+
       <div className="dictionary-list">
         {entries.map(entry => (
           <div key={entry.id} className="dictionary-item">
@@ -126,3 +57,12 @@ export default function Dictionary({ onUpdateGlobal }) {
     </div>
   );
 }
+
+Dictionary.propTypes = {
+  dictionary: PropTypes.shape({
+    entries: PropTypes.array.isRequired,
+    loading: PropTypes.bool.isRequired,
+    addEntry: PropTypes.func.isRequired,
+    deleteEntry: PropTypes.func.isRequired,
+  }).isRequired,
+};

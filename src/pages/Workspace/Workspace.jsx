@@ -13,6 +13,7 @@ import { useVoiceSettings } from '../../hooks/useVoiceSettings';
 import { useSpeechify } from '../../hooks/useSpeechify';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { useConfirm } from '../../hooks/useConfirm';
+import { useDictionary } from '../../hooks/useDictionary';
 import './Workspace.css';
 
 function Workspace() {
@@ -22,6 +23,7 @@ function Workspace() {
   // Custom hooks for business logic
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
   const voiceSettings = useVoiceSettings();
+  const dictionary = useDictionary(voiceSettings.applyDictionary);
   const speechify = useSpeechify(voiceSettings, projectId);
   const audioPlayer = useAudioPlayer(speechify, voiceSettings, setIsLoading, confirm);
   const isBatchRunningRef = useRef(false);
@@ -210,7 +212,7 @@ function Workspace() {
             setUseParagraphGap={voiceSettings.setUseParagraphGap}
             paragraphGapPause={voiceSettings.paragraphGapPause}
             setParagraphGapPause={voiceSettings.setParagraphGapPause}
-            handleCustomReplacementsChange={voiceSettings.handleCustomReplacementsChange}
+            dictionary={dictionary}
             error={speechify.error}
             voiceSettingsComponent={
               <VoiceSettings

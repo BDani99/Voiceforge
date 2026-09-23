@@ -239,12 +239,26 @@ export const useSpeechify = (settings, projectId) => {
     settings.pauseCustomTime,
     settings.emotion,
     settings.globalEmphasis,
-    settings.globalCustomReplacements,
     settings.useFadeTransitions,
     settings.fadeInDuration,
     settings.fadeOutDuration,
     invalidateAllAudio,
   ]);
+
+  // Dictionary changes invalidate audio too, but the first load is only the baseline:
+  // audio generated earlier with the same dictionary must stay valid.
+  const dictionaryBaselineRef = useRef(null);
+  useEffect(() => {
+    if (!settings.dictionaryLoaded) return;
+    if (dictionaryBaselineRef.current === null) {
+      dictionaryBaselineRef.current = settings.globalCustomReplacements;
+      return;
+    }
+    if (dictionaryBaselineRef.current !== settings.globalCustomReplacements) {
+      dictionaryBaselineRef.current = settings.globalCustomReplacements;
+      invalidateAllAudio();
+    }
+  }, [settings.dictionaryLoaded, settings.globalCustomReplacements, invalidateAllAudio]);
 
   // ------------------------------------------------------- paragraph editing
 
@@ -290,6 +304,10 @@ export const useSpeechify = (settings, projectId) => {
   // -------------------------------------------------------------- generation
 
   const runGeneration = useCallback(async (index, forceRegenerate) => {
+    // Generating before the dictionary is known would ignore the user's pronunciations.
+    if (!settings.dictionaryLoaded) {
+      throw new Error('Your dictionary has not loaded yet. Please wait a moment or reload the page.');
+    }
     const paragraph = paragraphs[index];
     const { id } = paragraph;
 

@@ -30,7 +30,7 @@ function RightPanel({
   setUseParagraphGap,
   paragraphGapPause,
   setParagraphGapPause,
-  handleCustomReplacementsChange,
+  dictionary,
   error,
   voiceSettingsComponent,
   presetsComponent
@@ -250,7 +250,7 @@ function RightPanel({
 
             <Accordion title="Dictionary" icon={BookOpen} defaultOpen={true}>
               <div style={{ paddingTop: '8px' }}>
-                <Dictionary onUpdateGlobal={handleCustomReplacementsChange} />
+                <Dictionary dictionary={dictionary} />
               </div>
             </Accordion>
           </div>
@@ -282,7 +282,7 @@ RightPanel.propTypes = {
   setUseParagraphGap: PropTypes.func.isRequired,
   paragraphGapPause: PropTypes.number.isRequired,
   setParagraphGapPause: PropTypes.func.isRequired,
-  handleCustomReplacementsChange: PropTypes.func.isRequired,
+  dictionary: PropTypes.object.isRequired,
   error: PropTypes.string,
   voiceSettingsComponent: PropTypes.node,
   presetsComponent: PropTypes.node
