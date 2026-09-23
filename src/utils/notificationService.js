@@ -38,7 +38,7 @@ export const getErrorMessage = (error, defaultMessage = 'An unexpected error occ
   }
 
   // Database / PostgREST Errors
-  if (lowerError.includes('row level security') || lowerError.includes('42501')) {
+  if (/row[- ]level security/.test(lowerError) || lowerError.includes('42501')) {
     return "You don't have permission to perform this action.";
   }
   if (error.code === '23505' || lowerError.includes('unique constraint')) {
