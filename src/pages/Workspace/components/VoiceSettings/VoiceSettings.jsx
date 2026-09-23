@@ -1,8 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Sliders } from 'lucide-react';
-import Accordion from '../Accordion/Accordion';
-import CustomSelect from '../CustomSelect/CustomSelect';
+import Accordion from '../../../../components/Accordion/Accordion';
+import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
 import './VoiceSettings.css';
 
 function VoiceSettings({

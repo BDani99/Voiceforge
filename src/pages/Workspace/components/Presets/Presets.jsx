@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../services/supabase';
-import { notify } from '../../utils/notificationService';
+import { supabase } from '../../../../services/supabase';
+import { notify } from '../../../../utils/notificationService';
 import { Save, Download, Trash2, Bookmark } from 'lucide-react';
-import Modal from '../Modal/Modal';
+import Modal from '../../../../components/Modal/Modal';
 import './Presets.css';
 
 export default function Presets({ currentSettings, onApplyPreset }) {

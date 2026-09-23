@@ -6,7 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import LoadingScreen from '../LoadingScreen/LoadingScreen';
+import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
 import './AdminDashboard.css';
 
 export default function AdminDashboard() {

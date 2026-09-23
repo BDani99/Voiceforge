@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Volume2, Settings2, Sliders, X, BookOpen } from 'lucide-react';
-import { SUPPORTED_LANGUAGES, EMOTION_OPTIONS, EMPHASIS_OPTIONS } from '../../constants/voiceConstants';
+import { SUPPORTED_LANGUAGES, EMOTION_OPTIONS, EMPHASIS_OPTIONS } from '../../../../constants/voiceConstants';
 import Dictionary from '../Dictionary/Dictionary';
-import Accordion from '../Accordion/Accordion';
-import Modal from '../Modal/Modal';
-import CustomSelect from '../CustomSelect/CustomSelect';
+import Accordion from '../../../../components/Accordion/Accordion';
+import Modal from '../../../../components/Modal/Modal';
+import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
 import './RightPanel.css';
 
 function RightPanel({

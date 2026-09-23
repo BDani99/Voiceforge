@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Play, Pause, Loader2, Mic, Check, Volume2, Trash2 } from 'lucide-react';
-import audioCrossfader from '../../utils/audioCrossfader';
+import audioCrossfader from '../../../../utils/audioCrossfader';
 import './ParagraphControl.css';
 
 /**

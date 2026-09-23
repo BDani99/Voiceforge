@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../services/supabase';
-import { notify } from '../../utils/notificationService';
+import { supabase } from '../../../../services/supabase';
+import { notify } from '../../../../utils/notificationService';
 import { Plus, Trash2, Save, BookOpen } from 'lucide-react';
-import Accordion from '../Accordion/Accordion';
-import LoadingScreen from '../LoadingScreen/LoadingScreen';
+import Accordion from '../../../../components/Accordion/Accordion';
+import LoadingScreen from '../../../../components/LoadingScreen/LoadingScreen';
 import './Dictionary.css';
 
 export default function Dictionary({ onUpdateGlobal }) {

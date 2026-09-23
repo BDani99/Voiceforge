@@ -3,18 +3,18 @@ import { notify } from '../../utils/notificationService';
 import { Type, X, Plus } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
-import Header from '../Header/Header';
-import VoiceSettings from '../VoiceSettings/VoiceSettings';
-import RightPanel from '../RightPanel/RightPanel';
-import PlaybackControls from '../PlaybackControls/PlaybackControls';
-import ParagraphControl from '../ParagraphControl/ParagraphControl';
-import Presets from '../Presets/Presets';
-import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import Header from '../../components/Header/Header';
+import VoiceSettings from './components/VoiceSettings/VoiceSettings';
+import RightPanel from './components/RightPanel/RightPanel';
+import PlaybackControls from './components/PlaybackControls/PlaybackControls';
+import ParagraphControl from './components/ParagraphControl/ParagraphControl';
+import Presets from './components/Presets/Presets';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useVoiceSettings } from '../../hooks/useVoiceSettings';
 import { useSpeechify } from '../../hooks/useSpeechify';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { useConfirm } from '../../hooks/useConfirm';
-import '../../App.css';
+import './Workspace.css';
 
 function Workspace() {
   const { projectId } = useParams();

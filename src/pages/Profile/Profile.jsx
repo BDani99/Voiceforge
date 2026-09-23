@@ -11,8 +11,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
-import LoadingScreen from '../LoadingScreen/LoadingScreen';
-import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import './Profile.css';
 

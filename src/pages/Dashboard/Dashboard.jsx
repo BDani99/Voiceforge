@@ -3,11 +3,11 @@ import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notificationService';
 import { Plus, Trash2, FolderOpen, Search, User, RefreshCcw, Sparkles, Zap, ArrowRight, ArchiveRestore, HardDrive, LayoutGrid, Clock } from 'lucide-react';
-import LoadingScreen from '../LoadingScreen/LoadingScreen';
-import Modal from '../Modal/Modal';
-import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
+import Modal from '../../components/Modal/Modal';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
-import '../Header/Header.css';
+import '../../components/Header/Header.css';
 import './Dashboard.css';
 
 export default function Dashboard() {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Save, Settings2, Bell } from 'lucide-react';
-import LoadingScreen from '../LoadingScreen/LoadingScreen';
+import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
 import './AdminSettings.css';
 
 export default function AdminSettings() {
