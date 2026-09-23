@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from 'vite'
+/// <reference types="vitest/config" />
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 /**
@@ -6,7 +7,7 @@ import react from '@vitejs/plugin-react'
  * configured Supabase project may be contacted; nothing is loaded from third parties.
  * (Not applied in dev: the dev server needs inline scripts for hot reloading.)
  */
-function contentSecurityPolicy(supabaseUrl) {
+function contentSecurityPolicy(supabaseUrl: string): Plugin {
   const supabase = new URL(supabaseUrl)
   const policy = [
     "default-src 'self'",
@@ -15,7 +16,7 @@ function contentSecurityPolicy(supabaseUrl) {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     `media-src 'self' blob: ${supabase.origin}`,
-    `connect-src 'self' ${supabase.origin} wss://${supabase.host}`,
+    `connect-src 'self' ${supabase.origin} wss://${supabase.host} https://api.pwnedpasswords.com`, // breached-password check (k-anonymity)
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -24,7 +25,7 @@ function contentSecurityPolicy(supabaseUrl) {
   return {
     name: 'content-security-policy',
     apply: 'build',
-    transformIndexHtml: (html) => html.replace(
+    transformIndexHtml: (html: string) => html.replace(
       '</head>',
       `  <meta http-equiv="Content-Security-Policy" content="${policy}" />\n  </head>`,
     ),
@@ -40,6 +41,13 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       open: true,
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./src/test/setup.ts'],
+      include: ['src/**/*.test.{ts,tsx}', 'supabase/**/*.test.ts'],
+      css: false,
     },
     build: {
       rollupOptions: {
