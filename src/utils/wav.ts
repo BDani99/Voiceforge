@@ -1,10 +1,10 @@
 /** Encodes an AudioBuffer as a 16-bit PCM WAV blob. */
-export function audioBufferToWav(audioBuffer) {
+export function audioBufferToWav(audioBuffer: AudioBuffer): Blob {
   const channels = audioBuffer.numberOfChannels;
   const dataLength = audioBuffer.length * channels * 2;
   const view = new DataView(new ArrayBuffer(44 + dataLength));
 
-  const writeString = (offset, string) => {
+  const writeString = (offset: number, string: string) => {
     for (let i = 0; i < string.length; i++) {
       view.setUint8(offset + i, string.charCodeAt(i));
     }
@@ -28,7 +28,7 @@ export function audioBufferToWav(audioBuffer) {
   let offset = 44;
   for (let i = 0; i < audioBuffer.length; i++) {
     for (let c = 0; c < channels; c++) {
-      const sample = Math.max(-1, Math.min(1, channelData[c][i]));
+      const sample = Math.max(-1, Math.min(1, channelData[c]?.[i] ?? 0));
       view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
       offset += 2;
     }

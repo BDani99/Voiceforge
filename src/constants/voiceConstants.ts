@@ -1,3 +1,17 @@
+import type { GlobalDefaults } from '../types/models';
+
+export const DEFAULT_GLOBAL_DEFAULTS: GlobalDefaults = {
+  pitch: 'medium',
+  pitchCustom: 0,
+  usePitchCustom: false,
+  rate: 'medium',
+  rateCustom: 0,
+  useRateCustom: false,
+  volume: 'medium',
+  volumeCustom: 0,
+  useVolumeCustom: false,
+};
+
 export const SUPPORTED_LANGUAGES = [
   { code: 'en-US', name: 'English (US)' },
   { code: 'en-GB', name: 'English (UK)' },

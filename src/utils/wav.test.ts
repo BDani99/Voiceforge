@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { audioBufferToWav } from './wav';
 
-const fakeBuffer = (channels, sampleRate) => ({
+/** Minimal stand-in for the browser's AudioBuffer (only what the encoder reads). */
+const fakeBuffer = (channels: Float32Array[], sampleRate: number): AudioBuffer => ({
   numberOfChannels: channels.length,
-  length: channels[0].length,
+  length: channels[0]?.length ?? 0,
   sampleRate,
-  getChannelData: (c) => channels[c],
-});
+  getChannelData: (c: number) => channels[c],
+} as unknown as AudioBuffer);
 
 describe('audioBufferToWav', () => {
   it('writes a valid 16-bit PCM header and interleaved samples', async () => {
@@ -14,7 +15,7 @@ describe('audioBufferToWav', () => {
     expect(blob.type).toBe('audio/wav');
 
     const view = new DataView(await blob.arrayBuffer());
-    const text = (offset, len) => String.fromCharCode(...new Uint8Array(view.buffer, offset, len));
+    const text = (offset: number, len: number) => String.fromCharCode(...new Uint8Array(view.buffer, offset, len));
     expect(text(0, 4)).toBe('RIFF');
     expect(text(8, 4)).toBe('WAVE');
     expect(view.getUint16(22, true)).toBe(2); // channels

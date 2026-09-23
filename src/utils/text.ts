@@ -1,9 +1,9 @@
 export const MAX_CHARS_PER_REQUEST = 2000;
 
 /** Splits text into chunks of at most `maxLength`, preferring sentence boundaries. */
-export function splitIntoChunks(text, maxLength = MAX_CHARS_PER_REQUEST) {
-  const sentences = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) || [text];
-  const chunks = [];
+export function splitIntoChunks(text: string, maxLength = MAX_CHARS_PER_REQUEST): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) ?? [text];
+  const chunks: string[] = [];
   let current = '';
 
   const flush = () => {

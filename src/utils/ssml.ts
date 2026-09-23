@@ -1,3 +1,5 @@
+import type { SsmlOptions } from '../types/models';
+
 const VALID_PITCH = ['x-low', 'low', 'medium', 'high', 'x-high'];
 const VALID_RATE = ['x-slow', 'slow', 'medium', 'fast', 'x-fast'];
 const VALID_VOLUME = ['silent', 'x-soft', 'soft', 'medium', 'loud', 'x-loud'];
@@ -11,8 +13,8 @@ const VALID_PAUSE_STRENGTH = ['none', 'x-weak', 'weak', 'medium', 'strong', 'x-s
 const PERCENT_RE = /^[+-]?\d+(\.\d+)?%$/;
 const VOLUME_RE = /^[+-]?\d+(\.\d+)?%$|^[+-]?\d+(\.\d+)?dB$/;
 
-export function escapeXml(text) {
-  return String(text ?? '')
+export function escapeXml(text: string): string {
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -20,13 +22,13 @@ export function escapeXml(text) {
     .replace(/'/g, '&apos;');
 }
 
-function escapeRegExp(string) {
+function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** Returns a list of human readable problems, empty if the options are valid. */
-export function validateSSMLOptions(options = {}) {
-  const errors = [];
+export function validateSSMLOptions(options: SsmlOptions = {}): string[] {
+  const errors: string[] = [];
   const { prosody, emphasis, emotion, breaks } = options;
 
   if (prosody) {
@@ -36,11 +38,11 @@ export function validateSSMLOptions(options = {}) {
     if (volume && !VALID_VOLUME.includes(volume) && !VOLUME_RE.test(volume)) errors.push(`Invalid volume value: ${volume}`);
   }
 
-  if (emphasis?.enabled && !VALID_EMPHASIS.includes(emphasis.level)) {
+  if (emphasis?.enabled && !VALID_EMPHASIS.includes(emphasis.level ?? '')) {
     errors.push(`Invalid emphasis level: ${emphasis.level}`);
   }
 
-  if (emotion?.enabled && !VALID_EMOTIONS.includes(emotion.type)) {
+  if (emotion?.enabled && !VALID_EMOTIONS.includes(emotion.type ?? '')) {
     errors.push(`Invalid emotion type: ${emotion.type}`);
   }
 
@@ -56,9 +58,14 @@ export function validateSSMLOptions(options = {}) {
   return errors;
 }
 
+interface TextPart {
+  text: string;
+  alias?: string;
+}
+
 /** Splits text on custom replacement words in a single pass (longest word wins). */
-function splitOnReplacements(text, replacements) {
-  const entries = Object.entries(replacements || {}).filter(([original, alias]) => original && alias);
+function splitOnReplacements(text: string, replacements: Record<string, string> | undefined): TextPart[] {
+  const entries = Object.entries(replacements ?? {}).filter(([original, alias]) => original && alias);
   if (entries.length === 0) return [{ text }];
 
   const aliasByWord = new Map(entries.map(([original, alias]) => [original.toLowerCase(), alias]));
@@ -68,7 +75,7 @@ function splitOnReplacements(text, replacements) {
     .map(escapeRegExp)
     .join('|');
 
-  const parts = [];
+  const parts: TextPart[] = [];
   let last = 0;
   for (const match of text.matchAll(new RegExp(pattern, 'gi'))) {
     if (match.index > last) parts.push({ text: text.slice(last, match.index) });
@@ -79,7 +86,7 @@ function splitOnReplacements(text, replacements) {
   return parts;
 }
 
-function sentenceBreakTag(breaks) {
+function sentenceBreakTag(breaks: SsmlOptions['breaks']): string | null {
   if (!breaks?.enabled) return null;
   if (breaks.pauseType === 'time') return `<break time="${Number(breaks.pauseTime ?? 750)}ms"/>`;
   const strength = breaks.pauseStrength || 'medium';
@@ -90,7 +97,7 @@ function sentenceBreakTag(breaks) {
  * Builds the SSML document for one text block. All user text is XML-escaped, so
  * it can never inject tags; only the tags generated here end up in the output.
  */
-export function buildSSML(text, options = {}) {
+export function buildSSML(text: string, options: SsmlOptions = {}): string {
   const {
     prosody = {},
     emphasis = {},
@@ -101,7 +108,7 @@ export function buildSSML(text, options = {}) {
     silenceDuration = 50,
   } = options;
 
-  if (!text || typeof text !== 'string') {
+  if (!text || typeof text !== 'string') { // also guards callers that bypass the types
     throw new Error('Text input is required and must be a string');
   }
 
@@ -127,7 +134,7 @@ export function buildSSML(text, options = {}) {
     content = `<emphasis level="${emphasis.level}">${content}</emphasis>`;
   }
 
-  const prosodyAttrs = [];
+  const prosodyAttrs: string[] = [];
   if (prosody.pitch) prosodyAttrs.push(`pitch="${prosody.pitch}"`);
   if (prosody.rate) prosodyAttrs.push(`rate="${prosody.rate}"`);
   if (prosody.volume) {
