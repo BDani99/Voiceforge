@@ -67,7 +67,7 @@ export default function Dashboard() {
 
       if (error) throw error;
       setNewTitle('');
-      setProjects([data[0], ...projects]);
+      setProjects(prev => [data[0], ...prev]);
       setIsCreateModalOpen(false);
       notify.success('Project created!');
       
@@ -83,7 +83,7 @@ export default function Dashboard() {
     try {
       const { error } = await supabase.from('projects').update({ is_deleted: true }).eq('id', id);
       if (error) throw error;
-      setProjects(projects.map(p => p.id === id ? { ...p, is_deleted: true } : p));
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, is_deleted: true } : p));
       notify.success('Project moved to trash');
     } catch (error) {
       notify.error(error, 'Failed to delete project');
@@ -95,7 +95,7 @@ export default function Dashboard() {
     try {
       const { error } = await supabase.from('projects').update({ is_deleted: false }).eq('id', id);
       if (error) throw error;
-      setProjects(projects.map(p => p.id === id ? { ...p, is_deleted: false } : p));
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, is_deleted: false } : p));
       notify.success('Project restored');
     } catch (error) {
       notify.error(error, 'Failed to restore project');
@@ -115,7 +115,7 @@ export default function Dashboard() {
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
-      setProjects(projects.filter(p => p.id !== id));
+      setProjects(prev => prev.filter(p => p.id !== id));
       notify.success('Project permanently deleted');
     } catch (error) {
       notify.error(error, 'Failed to delete project');
@@ -305,6 +305,7 @@ export default function Dashboard() {
               placeholder="e.g. My Awesome Audiobook"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              maxLength={100}
               autoFocus
             />
           </div>

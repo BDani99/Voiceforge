@@ -48,7 +48,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
 
     // If already generated but blob not in memory, fetch it from the stored URL directly
     if (!audioBlob && paragraph?.isGenerated && paragraph?.audioUrl) {
-      console.log(`📥 Fetching cached audio blob from URL for paragraph ${nextIndex + 1}`);
       try {
         audioBlob = await fetchAudioBlob(paragraph.audioUrl);
       } catch (e) {
@@ -56,7 +55,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
         audioBlob = await generateParagraphAudio(nextIndex, false);
       }
     } else if (!audioBlob) {
-      console.log(`🔄 Generating paragraph ${nextIndex + 1} for playback`);
       audioBlob = await generateParagraphAudio(nextIndex, false);
     }
 
@@ -243,7 +241,6 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
 
         // If generated and stored but blob not in memory, fetch directly from URL
         if (!audioBlob && p.isGenerated && p.audioUrl) {
-          console.log(`📥 Fetching stored audio for paragraph ${i + 1}`);
           try {
             audioBlob = await fetchAudioBlob(p.audioUrl);
           } catch (e) {
@@ -251,10 +248,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
             audioBlob = await generateParagraphAudio(i, false);
           }
         } else if (!audioBlob) {
-          console.log(`🔄 Generating paragraph ${i + 1} for export`);
           audioBlob = await generateParagraphAudio(i, false);
-        } else {
-          console.log(`✅ Using in-memory audio for paragraph ${i + 1}`);
         }
 
         if (audioBlob) {

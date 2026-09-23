@@ -41,22 +41,21 @@ export const useVoiceSettings = () => {
 
   // Sync to LocalStorage on change
   useEffect(() => {
-    localStorage.setItem('voiceforge_globalDefaults', JSON.stringify(globalDefaults));
-    localStorage.setItem('voiceforge_pauseStrength', JSON.stringify(pauseStrength));
-    localStorage.setItem('voiceforge_pauseCustomTime', JSON.stringify(pauseCustomTime));
-    localStorage.setItem('voiceforge_usePauseCustom', JSON.stringify(usePauseCustom));
-    localStorage.setItem('voiceforge_paragraphGapPause', JSON.stringify(paragraphGapPause));
-    localStorage.setItem('voiceforge_useParagraphGap', JSON.stringify(useParagraphGap));
-    localStorage.setItem('voiceforge_useFadeTransitions', JSON.stringify(useFadeTransitions));
-    localStorage.setItem('voiceforge_fadeInDuration', JSON.stringify(fadeInDuration));
-    localStorage.setItem('voiceforge_fadeOutDuration', JSON.stringify(fadeOutDuration));
-    localStorage.setItem('voiceforge_emotion', JSON.stringify(emotion));
-    localStorage.setItem('voiceforge_globalEmphasis', JSON.stringify(globalEmphasis));
-    localStorage.setItem('voiceforge_globalCustomReplacements', JSON.stringify(globalCustomReplacements));
+    const values = {
+      globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause,
+      useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion,
+      globalEmphasis, globalCustomReplacements,
+    };
+    try {
+      Object.entries(values).forEach(([key, value]) => {
+        localStorage.setItem(`voiceforge_${key}`, JSON.stringify(value));
+      });
+    } catch {
+      // Storage can be full or blocked (private mode); settings then simply are not persisted.
+    }
   }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis, globalCustomReplacements]);
 
   const updateGlobalDefaults = useCallback((field, value) => {
-    console.log(`⚙️ Updating global setting: ${field} = ${value}`);
     setGlobalDefaults(prev => {
       if (prev[field] !== value) {
         return {
@@ -69,14 +68,12 @@ export const useVoiceSettings = () => {
   }, []);
 
   const handleEmphasisChange = useCallback((value) => {
-    console.log(`📢 Updating emphasis: ${value}`);
     if (globalEmphasis !== value) {
       setGlobalEmphasis(value);
     }
   }, [globalEmphasis]);
 
   const handleCustomReplacementsChange = useCallback((value) => {
-    console.log(`🔄 Updating custom replacements`);
     if (globalCustomReplacements !== value) {
       setGlobalCustomReplacements(value);
     }
@@ -94,8 +91,8 @@ export const useVoiceSettings = () => {
           pairs[original] = replacement;
         }
       }
-    } catch (err) {
-      console.warn('Invalid custom replacements format:', err);
+    } catch {
+      // A malformed line is skipped, the rest of the dictionary still applies.
     }
     return pairs;
   }, []);
