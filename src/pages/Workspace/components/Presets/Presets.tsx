@@ -1,18 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { supabase } from '../../../../services/supabase';
 import { notify } from '../../../../utils/notificationService';
-import { Save, Download, Trash2, Bookmark } from 'lucide-react';
+import { Save, Trash2, Bookmark } from 'lucide-react';
+import { parsePresetSettings } from '../../../../utils/presets';
+import type { Tables } from '../../../../types/aliases';
+import type { Json } from '../../../../types/database';
+import type { PresetSettings } from '../../../../types/models';
 import Modal from '../../../../components/Modal/Modal';
 import './Presets.css';
 
-export default function Presets({ currentSettings, onApplyPreset }) {
-  const [presets, setPresets] = useState([]);
+type Preset = Tables<'presets'>;
+
+interface PresetsProps {
+  currentSettings: PresetSettings;
+  onApplyPreset: (settings: PresetSettings) => void;
+}
+
+export default function Presets({ currentSettings, onApplyPreset }: PresetsProps) {
+  const [presets, setPresets] = useState<Preset[]>([]);
   const [newPresetName, setNewPresetName] = useState('');
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activePresetName, setActivePresetName] = useState('');
 
-  const fetchPresets = async () => {
+  const fetchPresets = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -23,29 +34,32 @@ export default function Presets({ currentSettings, onApplyPreset }) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setPresets(data || []);
+      setPresets(data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (isModalOpen) fetchPresets();
-  }, [isModalOpen]);
+    if (isModalOpen) void fetchPresets();
+  }, [isModalOpen, fetchPresets]);
 
-  const savePreset = async (e) => {
+  const savePreset = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newPresetName.trim()) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+
       const { data, error } = await supabase
         .from('presets')
-        .insert([{ user_id: user.id, name: newPresetName.trim(), settings: currentSettings }])
-        .select();
+        .insert({ user_id: user.id, name: newPresetName.trim(), settings: currentSettings as Json })
+        .select()
+        .single();
       if (error) throw error;
-      setPresets([data[0], ...presets]);
+      setPresets((prev) => [data, ...prev]);
       setNewPresetName('');
       notify.success('Preset saved!');
     } catch (err) {
@@ -53,19 +67,19 @@ export default function Presets({ currentSettings, onApplyPreset }) {
     }
   };
 
-  const applyPreset = (preset) => {
-    onApplyPreset(preset.settings);
+  const applyPreset = (preset: Preset) => {
+    onApplyPreset(parsePresetSettings(preset.settings));
     setActivePresetName(preset.name);
     notify.success(`Applied preset: ${preset.name}`);
     setIsModalOpen(false);
   };
 
-  const deletePreset = async (id, e) => {
+  const deletePreset = async (id: string, e: MouseEvent) => {
     e.stopPropagation();
     try {
       const { error } = await supabase.from('presets').delete().eq('id', id);
       if (error) throw error;
-      setPresets(presets.filter(p => p.id !== id));
+      setPresets((prev) => prev.filter(p => p.id !== id));
       notify.success('Preset deleted');
     } catch (err) {
       notify.error(err, 'Failed to delete preset');
@@ -106,11 +120,24 @@ export default function Presets({ currentSettings, onApplyPreset }) {
         ) : (
           <div className="presets-grid">
             {presets.map(preset => (
-              <div key={preset.id} className="preset-card" onClick={() => applyPreset(preset)}>
+              <div
+                key={preset.id}
+                className="preset-card"
+                role="button"
+                tabIndex={0}
+                aria-label={`Apply preset ${preset.name}`}
+                onClick={() => applyPreset(preset)}
+                onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    applyPreset(preset);
+                  }
+                }}
+              >
                 <div className="preset-card-name">{preset.name}</div>
                 <div className="preset-card-footer">
                   <span className="preset-card-date">
-                    {new Date(preset.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {preset.created_at ? new Date(preset.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
                   </span>
                   <button
                     className="preset-card-delete"

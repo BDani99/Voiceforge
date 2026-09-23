@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Search, ArrowUpRight, ArrowDownRight, Settings, Volume2 } from 'lucide-react';
+import type { Tables } from '../../types/aliases';
 import './AdminLogs.css';
 
 const PAGE_SIZE = 50;
 
+type LogRow = Tables<'usage_logs'> & { users_profile: { email: string | null } | null };
+
 export default function AdminLogs() {
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
@@ -16,7 +19,6 @@ export default function AdminLogs() {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
 
-    // Joins users_profile for the email; needs a foreign key from usage_logs.user_id.
     // One extra row tells us whether there is an older page.
     const { data, error } = await supabase
       .from('usage_logs')
@@ -24,30 +26,20 @@ export default function AdminLogs() {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-    let rows = data;
     if (error) {
-      // Fallback if the join fails (e.g. no foreign key configured)
-      const { data: rawLogs, error: rawError } = await supabase
-        .from('usage_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-      if (rawError) notify.error(rawError, 'Error loading logs');
-      rows = rawLogs;
-    }
-
-    if (rows) {
-      setLogs(rows.slice(0, PAGE_SIZE));
-      setHasNextPage(rows.length > PAGE_SIZE);
+      notify.error(error, 'Error loading logs');
+    } else {
+      setLogs(data.slice(0, PAGE_SIZE));
+      setHasNextPage(data.length > PAGE_SIZE);
     }
     setLoading(false);
   }, [page]);
 
   useEffect(() => {
-    fetchLogs();
+    void fetchLogs();
   }, [fetchLogs]);
 
-  const getActionIcon = (action) => {
+  const getActionIcon = (action: string) => {
     switch (action) {
       case 'admin_topup': return <ArrowUpRight size={16} className="text-emerald-400" />;
       case 'admin_deduct': return <ArrowDownRight size={16} className="text-red-400" />;
@@ -62,7 +54,7 @@ export default function AdminLogs() {
     const email = log.users_profile?.email || log.user_id || '';
     return email.toLowerCase().includes(term) ||
            (log.action_type || '').toLowerCase().includes(term) ||
-           (log.reason && log.reason.toLowerCase().includes(term));
+           (log.reason?.toLowerCase().includes(term) ?? false);
   });
 
   return (
@@ -97,11 +89,11 @@ export default function AdminLogs() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" style={{ textAlign: 'center' }}>Loading...</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center' }}>Loading...</td></tr>
             ) : filteredLogs.map(log => (
               <tr key={log.id}>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  {new Date(log.created_at).toLocaleString()}
+                  {log.created_at ? new Date(log.created_at).toLocaleString() : '—'}
                 </td>
                 <td style={{ fontFamily: 'monospace' }}>
                   {log.users_profile?.email || `${(log.user_id || '').substring(0, 8)}...`}

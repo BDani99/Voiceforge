@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
-import PropTypes from 'prop-types';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, type ComponentType, type ReactNode } from 'react';
+import { ChevronDown, ChevronRight, type LucideProps } from 'lucide-react';
 import './Accordion.css';
 
-export default function Accordion({ title, icon: Icon, children, defaultOpen = true }) {
+interface AccordionProps {
+  title: string;
+  icon?: ComponentType<LucideProps>;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}
+
+export default function Accordion({ title, icon: Icon, children, defaultOpen = true }: AccordionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <div className={`accordion ${isOpen ? 'open' : 'closed'}`}>
-      <button 
-        className="accordion-header" 
+      <button
+        type="button"
+        className="accordion-header"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
       >
@@ -21,7 +28,7 @@ export default function Accordion({ title, icon: Icon, children, defaultOpen = t
           {isOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
         </div>
       </button>
-      
+
       {isOpen && (
         <div className="accordion-content">
           {children}
@@ -30,10 +37,3 @@ export default function Accordion({ title, icon: Icon, children, defaultOpen = t
     </div>
   );
 }
-
-Accordion.propTypes = {
-  title: PropTypes.string.isRequired,
-  icon: PropTypes.elementType,
-  children: PropTypes.node.isRequired,
-  defaultOpen: PropTypes.bool
-};

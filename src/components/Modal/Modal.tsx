@@ -1,11 +1,17 @@
-import React, { useId, useRef } from 'react';
-import PropTypes from 'prop-types';
+import { useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useModalBehavior } from '../../hooks/useModalBehavior';
 import './Modal.css';
 
-export default function Modal({ isOpen, onClose, title, children }) {
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children?: ReactNode;
+}
+
+export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
   const containerRef = useRef(null);
   const titleId = useId();
   useModalBehavior(isOpen, onClose, containerRef);
@@ -37,10 +43,3 @@ export default function Modal({ isOpen, onClose, title, children }) {
     document.body
   );
 }
-
-Modal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  title: PropTypes.string.isRequired,
-  children: PropTypes.node,
-};

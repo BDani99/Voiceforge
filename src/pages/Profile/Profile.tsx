@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import type { User as AuthUser } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notificationService';
+import { buildDailyUsage, computeUsageStats, type DailyUsage, type UsageStats } from '../../utils/usageStats';
+import { isPasswordBreached, validatePassword } from '../../utils/passwordPolicy';
+import type { Tables } from '../../types/aliases';
 import {
   User, ArrowLeft, Settings, Activity, Zap, TrendingUp,
   TrendingDown, Eye, EyeOff, Save, Key, Mail, Calendar,
   BarChart3, Clock, FileText, Shield, AlertTriangle, Coins, LogOut
 } from 'lucide-react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
@@ -16,20 +20,31 @@ import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import './Profile.css';
 
+type ProfileRow = Tables<'users_profile'>;
+type UsageLog = Pick<Tables<'usage_logs'>, 'id' | 'action_type' | 'character_count' | 'created_at' | 'reason' | 'language' | 'project_id'>;
+type LogWithProject = UsageLog & { projectTitle: string | null };
+
+const ACTION_LABELS: Record<string, string> = {
+  generation: 'Generation',
+  preview: 'Preview',
+  admin_topup: 'Credit Top-up',
+  admin_deduct: 'Credit Deduction',
+};
+
 export default function Profile() {
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
-  const [activeTab, setActiveTab] = useState('usage');
-  const [profile, setProfile] = useState(null);
-  const [user, setUser] = useState(null);
-  const [logs, setLogs] = useState([]);
+  const [activeTab, setActiveTab] = useState<'usage' | 'settings'>('usage');
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [logs, setLogs] = useState<LogWithProject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState([]);
-  const [stats, setStats] = useState({ totalGenerated: 0, totalUsed: 0, projectCount: 0, avgPerDay: 0 });
+  const [chartData, setChartData] = useState<DailyUsage[]>([]);
+  const [stats, setStats] = useState<UsageStats & { projectCount: number }>({ totalGenerated: 0, totalUsed: 0, projectCount: 0, avgPerDay: 0 });
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/login');
+    void navigate('/login');
   };
 
   // Settings state
@@ -44,7 +59,7 @@ export default function Profile() {
   const fetchAll = useCallback(async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) { navigate('/login'); return; }
+      if (!authUser) { void void navigate('/login'); return; }
       setUser(authUser);
 
       const [profileRes, logsRes, projectsRes] = await Promise.all([
@@ -62,44 +77,20 @@ export default function Profile() {
         setDisplayName(profileRes.data.display_name || '');
       }
 
-      const logsData = logsRes.data || [];
+      const logsData = logsRes.data ?? [];
 
       // Fetch project titles for logs that have a project_id
-      const projectIds = [...new Set(logsData.filter(l => l.project_id).map(l => l.project_id))];
-      let projectMap = {};
+      const projectIds = [...new Set(logsData.flatMap((l) => (l.project_id ? [l.project_id] : [])))];
+      const projectTitles = new Map<string, string>();
       if (projectIds.length > 0) {
         const { data: projData } = await supabase.from('projects').select('id, title').in('id', projectIds);
-        if (projData) projData.forEach(p => { projectMap[p.id] = p.title; });
+        projData?.forEach((p) => projectTitles.set(p.id, p.title));
       }
-      const enrichedLogs = logsData.map(l => ({ ...l, projectTitle: projectMap[l.project_id] || null }));
-      setLogs(enrichedLogs);
+      setLogs(logsData.map((l) => ({ ...l, projectTitle: (l.project_id && projectTitles.get(l.project_id)) || null })));
 
-      // Compute stats
-      const generationLogs = logsData.filter(l => l.action_type === 'generation' || l.action_type === 'preview');
-      const totalUsed = generationLogs.reduce((s, l) => s + (l.character_count || 0), 0);
-
-      // Chart: last 14 days
-      const days = {};
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        days[key] = 0;
-      }
-      generationLogs.forEach(l => {
-        const key = new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (days[key] !== undefined) days[key] += l.character_count || 0;
-      });
-      const chartArr = Object.entries(days).map(([date, chars]) => ({ date, chars }));
-      setChartData(chartArr);
-
-      const activeDays = chartArr.filter(d => d.chars > 0).length;
-      setStats({
-        totalGenerated: generationLogs.length,
-        totalUsed,
-        projectCount: projectsRes.count || 0,
-        avgPerDay: activeDays > 0 ? Math.round(totalUsed / activeDays) : 0,
-      });
+      const daily = buildDailyUsage(logsData, 14);
+      setChartData(daily);
+      setStats({ ...computeUsageStats(logsData, daily), projectCount: projectsRes.count ?? 0 });
 
     } catch (err) {
       console.error(err);
@@ -110,12 +101,12 @@ export default function Profile() {
   }, [navigate]);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
   }, [fetchAll]);
 
-  const handleSaveName = async (e) => {
+  const handleSaveName = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    if (!user || !displayName.trim()) return;
     setSavingName(true);
     try {
       const { error } = await supabase
@@ -123,7 +114,7 @@ export default function Profile() {
         .update({ display_name: displayName.trim() })
         .eq('id', user.id);
       if (error) throw error;
-      setProfile(prev => ({ ...prev, display_name: displayName.trim() }));
+      setProfile(prev => (prev ? { ...prev, display_name: displayName.trim() } : prev));
       notify.success('Display name updated!');
     } catch (err) {
       notify.error(err, 'Failed to update name');
@@ -132,18 +123,23 @@ export default function Profile() {
     }
   };
 
-  const handleChangePassword = async (e) => {
+  const handleChangePassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
       notify.error('Passwords do not match!');
       return;
     }
-    if (newPassword.length < 8) {
-      notify.error('Password must be at least 8 characters!');
+    const policyError = validatePassword(newPassword);
+    if (policyError) {
+      notify.error(policyError);
       return;
     }
     setSavingPassword(true);
     try {
+      if (await isPasswordBreached(newPassword)) {
+        notify.error('This password appeared in a known data breach. Please choose a different one.');
+        return;
+      }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       notify.success('Password changed successfully!');
@@ -171,22 +167,19 @@ export default function Profile() {
       if (error) throw error;
       await supabase.auth.signOut();
       notify.success('Your account has been deleted.');
-      navigate('/login');
+      void navigate('/login');
     } catch (err) {
       notify.error(err, 'Failed to delete account');
     }
   };
 
-  const formatDate = (d) => new Date(d).toLocaleString('en-US', {
+  const formatDate = (d: string | null) => (d ? new Date(d).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  });
+  }) : '—');
 
-  const getActionLabel = (type) => {
-    const labels = { generation: 'Generation', preview: 'Preview', admin_topup: 'Credit Top-up', admin_deduct: 'Credit Deduction' };
-    return labels[type] || type;
-  };
+  const getActionLabel = (type: string) => ACTION_LABELS[type] ?? type;
 
-  const getActionClass = (type) => {
+  const getActionClass = (type: string) => {
     if (type === 'admin_topup') return 'topup';
     if (type === 'admin_deduct') return 'deduct';
     if (type === 'preview') return 'preview';
@@ -218,7 +211,7 @@ export default function Profile() {
           </button>
           <div className="profile-title">
             <div className="profile-avatar">
-              {(profile?.display_name || user?.email || 'U')[0].toUpperCase()}
+              {(profile?.display_name || user?.email || 'U').charAt(0).toUpperCase()}
             </div>
             <div>
               <h1>{profile?.display_name || 'My Profile'}</h1>
@@ -336,7 +329,7 @@ export default function Profile() {
                   </thead>
                   <tbody>
                     {logs.length === 0 ? (
-                      <tr><td colSpan="6" className="log-empty">No activity yet.</td></tr>
+                      <tr><td colSpan={6} className="log-empty">No activity yet.</td></tr>
                     ) : (
                       logs.map(log => (
                         <tr key={log.id}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Save, Settings2, Bell } from 'lucide-react';
@@ -32,10 +32,10 @@ export default function AdminSettings() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
+    void fetchSettings();
   }, [fetchSettings]);
 
-  const saveSettings = async (e) => {
+  const saveSettings = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const credits = Number(settings.default_credits);

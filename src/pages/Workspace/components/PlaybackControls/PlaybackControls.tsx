@@ -1,7 +1,16 @@
-import React from 'react';
-import PropTypes from 'prop-types';
 import { Play, Pause } from 'lucide-react';
+import type { Paragraph } from '../../../../types/models';
 import './PlaybackControls.css';
+
+interface PlaybackControlsProps {
+  handlePlayAll: () => void;
+  skipToParagraph: (index: number) => void;
+  paragraphs: Paragraph[];
+  totalParagraphs: number;
+  isPlayingAll: boolean;
+  currentPlayingIndex: number;
+  generatingIndex: number;
+}
 
 function PlaybackControls({
   handlePlayAll,
@@ -11,7 +20,7 @@ function PlaybackControls({
   isPlayingAll,
   currentPlayingIndex,
   generatingIndex
-}) {
+}: PlaybackControlsProps) {
   return (
     <div className="playback-controls">
       <div className="playback-bar">
@@ -70,14 +79,5 @@ function PlaybackControls({
   );
 }
 
-PlaybackControls.propTypes = {
-  handlePlayAll: PropTypes.func.isRequired,
-  skipToParagraph: PropTypes.func.isRequired,
-  paragraphs: PropTypes.array.isRequired,
-  totalParagraphs: PropTypes.number.isRequired,
-  isPlayingAll: PropTypes.bool.isRequired,
-  currentPlayingIndex: PropTypes.number.isRequired,
-  generatingIndex: PropTypes.number.isRequired
-};
 
 export default PlaybackControls;

@@ -1,9 +1,19 @@
-import React from 'react';
-import PropTypes from 'prop-types';
 import { Sliders } from 'lucide-react';
 import Accordion from '../../../../components/Accordion/Accordion';
 import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
+import type { GlobalDefaults } from '../../../../types/models';
 import './VoiceSettings.css';
+
+interface VoiceSettingsProps {
+  globalDefaults: GlobalDefaults;
+  updateGlobalDefaults: <K extends keyof GlobalDefaults>(field: K, value: GlobalDefaults[K]) => void;
+  pauseStrength: string;
+  setPauseStrength: (value: string) => void;
+  usePauseCustom: boolean;
+  setUsePauseCustom: (value: boolean) => void;
+  pauseCustomTime: number;
+  setPauseCustomTime: (value: number) => void;
+}
 
 function VoiceSettings({
   globalDefaults,
@@ -14,7 +24,7 @@ function VoiceSettings({
   setUsePauseCustom,
   pauseCustomTime,
   setPauseCustomTime
-}) {
+}: VoiceSettingsProps) {
   return (
     <Accordion title="Audio Settings" icon={Sliders} defaultOpen={true}>
       <div className="global-defaults-controls">
@@ -185,25 +195,5 @@ function VoiceSettings({
   );
 }
 
-VoiceSettings.propTypes = {
-  globalDefaults: PropTypes.shape({
-    pitch: PropTypes.string.isRequired,
-    pitchCustom: PropTypes.number.isRequired,
-    usePitchCustom: PropTypes.bool.isRequired,
-    rate: PropTypes.string.isRequired,
-    rateCustom: PropTypes.number.isRequired,
-    useRateCustom: PropTypes.bool.isRequired,
-    volume: PropTypes.string.isRequired,
-    volumeCustom: PropTypes.number.isRequired,
-    useVolumeCustom: PropTypes.bool.isRequired,
-  }).isRequired,
-  updateGlobalDefaults: PropTypes.func.isRequired,
-  pauseStrength: PropTypes.string.isRequired,
-  setPauseStrength: PropTypes.func.isRequired,
-  usePauseCustom: PropTypes.bool.isRequired,
-  setUsePauseCustom: PropTypes.func.isRequired,
-  pauseCustomTime: PropTypes.number.isRequired,
-  setPauseCustomTime: PropTypes.func.isRequired,
-};
 
 export default VoiceSettings;

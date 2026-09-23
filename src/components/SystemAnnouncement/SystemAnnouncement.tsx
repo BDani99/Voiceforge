@@ -1,40 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { AlertTriangle } from 'lucide-react';
 import './SystemAnnouncement.css';
+
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function SystemAnnouncement() {
   const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchAnnouncement = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('value')
-          .eq('key', 'announcement')
-          .single();
-        
-        if (!error && data?.value) {
-          setAnnouncement(data.value);
-        }
-      } catch (err) {
-        // silently ignore error if table doesn't exist or setting missing
-      }
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'announcement')
+        .maybeSingle();
+
+      // On errors keep what is shown; a cleared announcement (no row or empty value) hides the banner.
+      if (!error && !cancelled) setAnnouncement(data?.value ?? '');
     };
-    
-    fetchAnnouncement();
-    
-    // Check every 5 minutes
-    const interval = setInterval(fetchAnnouncement, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    void fetchAnnouncement();
+    const interval = setInterval(() => void fetchAnnouncement(), REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   if (!announcement) return null;
 
   return (
-    <div className="system-announcement">
-      <AlertTriangle size={18} />
+    <div className="system-announcement" role="status">
+      <AlertTriangle size={18} aria-hidden="true" />
       <span>{announcement}</span>
     </div>
   );

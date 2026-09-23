@@ -1,11 +1,28 @@
-import React, { useRef, useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
+import { useRef, useEffect, useState, type MouseEvent } from 'react';
 import { Play, Pause, Loader2, Mic, Check, Volume2, Trash2 } from 'lucide-react';
+import type { GlobalDefaults, Paragraph } from '../../../../types/models';
 import './ParagraphControl.css';
 
-/**
- * Enhanced Paragraph component with fade support, smart cache UI, and micro-preview
- */
+interface ParagraphControlProps {
+  paragraph: Paragraph;
+  index: number;
+  onUpdate: (index: number, text: string) => void;
+  onDelete: (index: number) => void;
+  onPlay: (index: number) => void | Promise<void>;
+  onGenerate: (index: number, forceRegenerate?: boolean) => Promise<Blob | null>;
+  onPreview?: (text: string) => Promise<void>;
+  onSplitText: (text: string) => void;
+  isPlaying: boolean;
+  isGenerating: boolean;
+  isGenerated: boolean;
+  globalDefaults: GlobalDefaults;
+  currentEmotion?: string;
+  isFirstParagraph?: boolean;
+  /** Returns the audio element that is currently playing, if any. */
+  globalAudio?: () => HTMLAudioElement | null;
+}
+
+/** One text block with generate/play/delete controls, a progress bar and a selection preview. */
 function ParagraphControl({
   paragraph,
   index,
@@ -22,16 +39,16 @@ function ParagraphControl({
   currentEmotion,
   isFirstParagraph = false,
   globalAudio
-}) {
+}: ParagraphControlProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [selection, setSelection] = useState('');
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const textareaRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Update progress smoothly using globalAudio
   useEffect(() => {
-    let animationFrameId;
+    let animationFrameId: number | undefined;
     
     const updateProgress = () => {
       if (isPlaying && globalAudio) {
@@ -57,20 +74,20 @@ function ParagraphControl({
 
   const handlePlayPause = async () => {
     if (isGenerated && (paragraph.audioBlob || paragraph.audioUrl)) {
-      onPlay(index);
+      void onPlay(index);
     } else if (!isGenerating) {
       // If not generated, generate it first, then play
       const newBlob = await onGenerate(index, false);
       if (newBlob) {
         // Wait a small tick to ensure state is updated before playing
         setTimeout(() => {
-          onPlay(index);
+          void onPlay(index);
         }, 100);
       }
     }
   };
 
-  const handleSeek = (e) => {
+  const handleSeek = (e: MouseEvent<HTMLDivElement>) => {
     const targetAudio = globalAudio ? globalAudio() : null;
     if (!targetAudio || !duration) return;
     
@@ -80,18 +97,18 @@ function ParagraphControl({
     setCurrentTime(pos * duration);
   };
 
-  const formatTime = (secs) => {
+  const formatTime = (secs: number) => {
     if (isNaN(secs) || !isFinite(secs)) return '0:00';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleTextChange = (newText) => {
+  const handleTextChange = (newText: string) => {
     if (isFirstParagraph && newText.includes('\n')) {
       onSplitText(newText);
     } else {
-      onUpdate(index, 'text', newText);
+      onUpdate(index, newText);
     }
     setSelection(''); // clear selection on edit
   };
@@ -212,7 +229,7 @@ function ParagraphControl({
           onMouseUp={handleMouseUp}
           onKeyUp={handleMouseUp}
           className="paragraph-textarea"
-          rows="4"
+          rows={4}
           placeholder={isFirstParagraph ? "Paste your text here. Multiple paragraphs will be automatically split..." : "Enter paragraph text..."}
         />
         
@@ -236,37 +253,5 @@ function ParagraphControl({
   );
 }
 
-ParagraphControl.propTypes = {
-  paragraph: PropTypes.shape({
-    text: PropTypes.string.isRequired,
-    audioBlob: PropTypes.instanceOf(Blob),
-    isGenerated: PropTypes.bool.isRequired,
-    wasCached: PropTypes.bool,
-  }).isRequired,
-  index: PropTypes.number.isRequired,
-  onUpdate: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-  onPlay: PropTypes.func.isRequired,
-  onGenerate: PropTypes.func.isRequired,
-  onPreview: PropTypes.func,
-  onSplitText: PropTypes.func.isRequired,
-  isPlaying: PropTypes.bool.isRequired,
-  isGenerating: PropTypes.bool.isRequired,
-  isGenerated: PropTypes.bool.isRequired,
-  globalDefaults: PropTypes.shape({
-    pitch: PropTypes.string,
-    pitchCustom: PropTypes.number,
-    usePitchCustom: PropTypes.bool,
-    rate: PropTypes.string,
-    rateCustom: PropTypes.number,
-    useRateCustom: PropTypes.bool,
-    volume: PropTypes.string,
-    volumeCustom: PropTypes.number,
-    useVolumeCustom: PropTypes.bool,
-  }).isRequired,
-  currentEmotion: PropTypes.string,
-  isFirstParagraph: PropTypes.bool,
-  globalAudio: PropTypes.func,
-};
 
 export default ParagraphControl;

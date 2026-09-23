@@ -1,28 +1,31 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type FormEvent, type MouseEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notificationService';
-import { Plus, Trash2, FolderOpen, Search, User, RefreshCcw, Sparkles, Zap, ArrowRight, ArchiveRestore, HardDrive, LayoutGrid, Clock } from 'lucide-react';
+import { Plus, Trash2, FolderOpen, Search, User, Sparkles, Zap, ArrowRight, ArchiveRestore, LayoutGrid, Clock } from 'lucide-react';
 import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
 import Modal from '../../components/Modal/Modal';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import '../../components/Header/Header.css';
+import type { Tables } from '../../types/aliases';
 import './Dashboard.css';
 
+type Project = Tables<'projects'>;
+
 export default function Dashboard() {
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'trash'
-  const [credits, setCredits] = useState(null);
+  const [credits, setCredits] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const navigate = useNavigate();
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
   const fetchData = async () => {
@@ -55,30 +58,31 @@ export default function Dashboard() {
     }
   };
 
-  const createProject = async (e) => {
+  const createProject = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+
       const { data, error } = await supabase
         .from('projects')
-        .insert([{ title: newTitle.trim(), user_id: user.id, is_deleted: false }])
-        .select();
+        .insert({ title: newTitle.trim(), user_id: user.id, is_deleted: false })
+        .select()
+        .single();
 
       if (error) throw error;
       setNewTitle('');
-      setProjects(prev => [data[0], ...prev]);
+      setProjects(prev => [data, ...prev]);
       setIsCreateModalOpen(false);
       notify.success('Project created!');
       
-      // Optionally redirect straight to project
-      // navigate(`/app/${data[0].id}`);
     } catch (error) {
       notify.error(error, 'Failed to create project');
     }
   };
 
-  const softDeleteProject = async (id, e) => {
+  const softDeleteProject = async (id: string, e: MouseEvent) => {
     e.stopPropagation();
     try {
       const { error } = await supabase.from('projects').update({ is_deleted: true }).eq('id', id);
@@ -90,7 +94,7 @@ export default function Dashboard() {
     }
   };
 
-  const restoreProject = async (id, e) => {
+  const restoreProject = async (id: string, e: MouseEvent) => {
     e.stopPropagation();
     try {
       const { error } = await supabase.from('projects').update({ is_deleted: false }).eq('id', id);
@@ -102,7 +106,7 @@ export default function Dashboard() {
     }
   };
 
-  const hardDeleteProject = async (id, e) => {
+  const hardDeleteProject = async (id: string, e: MouseEvent) => {
     e.stopPropagation();
     const confirmed = await confirm({
       title: 'Delete Project',
@@ -122,13 +126,13 @@ export default function Dashboard() {
     }
   };
 
-  const openProject = (id) => {
-    navigate(`/app/${id}`);
+  const openProject = (id: string) => {
+    void navigate(`/app/${id}`);
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/login');
+    void navigate('/login');
   };
 
   const filteredProjects = useMemo(() => {
@@ -169,7 +173,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="header-right">
-          <div className={`credit-display ${credits < 1000 ? 'low-credits pulse' : ''}`} title="Available Credits">
+          <div className={`credit-display ${(credits ?? 0) < 1000 ? 'low-credits pulse' : ''}`} title="Available Credits">
             <Zap size={18} className="credit-icon" />
             <span>{credits?.toLocaleString() || 0}</span>
             <span className="credit-label">credits</span>
@@ -254,7 +258,7 @@ export default function Dashboard() {
                     <h3>{project.title}</h3>
                     <div className="project-meta">
                       <Clock size={14} />
-                      <span>{new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span>{project.created_at ? new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
                     </div>
                   </div>
                 </div>

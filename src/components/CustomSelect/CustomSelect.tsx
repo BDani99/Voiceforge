@@ -1,10 +1,24 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
-import PropTypes from 'prop-types';
+import { useState, useRef, useEffect, useId, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import './CustomSelect.css';
 
+export interface SelectOption<V extends string | number = string> {
+  value: V;
+  label: ReactNode;
+}
+
+interface CustomSelectProps<V extends string | number> {
+  value: V | undefined;
+  onChange: (value: V) => void;
+  options: SelectOption<V>[];
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  ariaLabel?: string;
+}
+
 /** Accessible single-select dropdown (listbox pattern) with full keyboard support. */
-export default function CustomSelect({
+export default function CustomSelect<V extends string | number = string>({
   value,
   onChange,
   options,
@@ -12,16 +26,16 @@ export default function CustomSelect({
   disabled = false,
   className = "",
   ariaLabel
-}) {
+}: CustomSelectProps<V>) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
   // Close when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -38,12 +52,12 @@ export default function CustomSelect({
     setIsOpen(true);
   };
 
-  const handleSelect = (optionValue) => {
+  const handleSelect = (optionValue: V) => {
     onChange(optionValue);
     setIsOpen(false);
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (disabled) return;
 
     if (!isOpen) {
@@ -137,16 +151,3 @@ export default function CustomSelect({
     </div>
   );
 }
-
-CustomSelect.propTypes = {
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  onChange: PropTypes.func.isRequired,
-  options: PropTypes.arrayOf(PropTypes.shape({
-    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    label: PropTypes.node.isRequired,
-  })).isRequired,
-  placeholder: PropTypes.string,
-  disabled: PropTypes.bool,
-  className: PropTypes.string,
-  ariaLabel: PropTypes.string,
-};

@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Search, MoreVertical, X, ShieldAlert, Plus, Minus } from 'lucide-react';
+import type { Tables } from '../../types/aliases';
 import { useModalBehavior } from '../../hooks/useModalBehavior';
 import './AdminUsers.css';
 
 const PAGE_SIZE = 20;
+
+type UserProfile = Tables<'users_profile'>;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -17,10 +20,10 @@ export default function AdminUsers() {
   const [hasNextPage, setHasNextPage] = useState(false);
 
   // Modal State
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
-  const [creditAction, setCreditAction] = useState('add');
+  const [creditAction, setCreditAction] = useState<'add' | 'deduct'>('add');
 
   const modalRef = useRef(null);
 
@@ -59,11 +62,13 @@ export default function AdminUsers() {
   }, [page, debouncedSearch]);
 
   useEffect(() => {
-    fetchUsers();
+    void fetchUsers();
   }, [fetchUsers]);
 
-  const handleAdjustCredits = async (e) => {
+  const handleAdjustCredits = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const user = selectedUser;
+    if (!user) return;
     if (!creditReason.trim()) {
       notify.warning('Reason is required!');
       return;
@@ -74,9 +79,10 @@ export default function AdminUsers() {
       return;
     }
 
+    const balance = user.available_characters ?? 0;
     const actualAmount = creditAction === 'add' ? amount : -amount;
-    const newBalance = Math.max(0, selectedUser.available_characters + actualAmount);
-    const appliedAmount = Math.abs(newBalance - selectedUser.available_characters);
+    const newBalance = Math.max(0, balance + actualAmount);
+    const appliedAmount = Math.abs(newBalance - balance);
 
     try {
       // Only update if the balance is still the one shown, so a generation running
@@ -84,28 +90,28 @@ export default function AdminUsers() {
       const { data: updated, error } = await supabase
         .from('users_profile')
         .update({ available_characters: newBalance })
-        .eq('id', selectedUser.id)
-        .eq('available_characters', selectedUser.available_characters)
+        .eq('id', user.id)
+        .eq('available_characters', balance)
         .select('id');
 
       if (error) throw error;
       if (!updated || updated.length === 0) {
         notify.warning('The balance changed in the meantime. The list was refreshed, please try again.');
         closeModal();
-        fetchUsers();
+        void fetchUsers();
         return;
       }
 
       const { error: logError } = await supabase.from('usage_logs').insert([{
-        user_id: selectedUser.id,
+        user_id: user.id,
         character_count: appliedAmount,
         action_type: creditAction === 'add' ? 'admin_topup' : 'admin_deduct',
         reason: creditReason.trim()
       }]);
       if (logError) notify.warning('Credits were updated, but writing the audit log failed.');
 
-      notify.success(`Credits updated for: ${selectedUser.email}`);
-      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, available_characters: newBalance } : u));
+      notify.success(`Credits updated for: ${user.email}`);
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, available_characters: newBalance } : u));
       closeModal();
     } catch (err) {
       console.error(err);
@@ -114,18 +120,20 @@ export default function AdminUsers() {
   };
 
   const toggleBanStatus = async () => {
-    const newStatus = !selectedUser.is_banned;
+    const user = selectedUser;
+    if (!user) return;
+    const newStatus = !user.is_banned;
     try {
       const { error } = await supabase
         .from('users_profile')
         .update({ is_banned: newStatus })
-        .eq('id', selectedUser.id);
+        .eq('id', user.id);
         
       if (error) throw error;
       
       notify.success(newStatus ? 'Account suspended!' : 'Account activated!');
-      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, is_banned: newStatus } : u));
-      setSelectedUser({ ...selectedUser, is_banned: newStatus });
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_banned: newStatus } : u));
+      setSelectedUser({ ...user, is_banned: newStatus });
     } catch (err) {
       notify.error(err, 'Error modifying status');
     }
@@ -168,7 +176,7 @@ export default function AdminUsers() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="6" style={{ textAlign: 'center' }}>Loading...</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center' }}>Loading...</td></tr>
             ) : users.map(user => (
               <tr
                 key={user.id}
@@ -180,7 +188,7 @@ export default function AdminUsers() {
               >
                 <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{user.id.substring(0, 8)}...</td>
                 <td>{user.email || '—'}</td>
-                <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                <td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td>
                 <td style={{ fontWeight: '600', color: '#c084fc' }}>{(user.available_characters ?? 0).toLocaleString()}</td>
                 <td>
                   {user.is_banned ? (

@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
-import PropTypes from 'prop-types';
+import { useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import type { DictionaryApi } from '../../../../hooks/useDictionary';
 import LoadingScreen from '../../../../components/LoadingScreen/LoadingScreen';
 import './Dictionary.css';
 
-export default function Dictionary({ dictionary }) {
+interface DictionaryProps {
+  dictionary: DictionaryApi;
+}
+
+export default function Dictionary({ dictionary }: DictionaryProps) {
   const { entries, loading, addEntry, deleteEntry } = dictionary;
   const [originalWord, setOriginalWord] = useState('');
   const [replacementWord, setReplacementWord] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!originalWord.trim() || !replacementWord.trim()) return;
 
@@ -58,11 +62,3 @@ export default function Dictionary({ dictionary }) {
   );
 }
 
-Dictionary.propTypes = {
-  dictionary: PropTypes.shape({
-    entries: PropTypes.array.isRequired,
-    loading: PropTypes.bool.isRequired,
-    addEntry: PropTypes.func.isRequired,
-    deleteEntry: PropTypes.func.isRequired,
-  }).isRequired,
-};

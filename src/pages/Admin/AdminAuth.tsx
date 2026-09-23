@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify, getErrorMessage } from '../../utils/notificationService';
@@ -12,7 +12,7 @@ export default function AdminAuth() {
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
-  const handleAdminLogin = async (e) => {
+  const handleAdminLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
@@ -30,7 +30,7 @@ export default function AdminAuth() {
       }
       
       notify.success('Admin login successful');
-      navigate('/admin/dashboard');
+      void navigate('/admin/dashboard');
     } catch (error) {
       const friendlyMessage = getErrorMessage(error);
       setErrorMsg(friendlyMessage);

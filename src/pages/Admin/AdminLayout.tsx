@@ -1,6 +1,5 @@
-import React from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, ScrollText, Settings, LogOut, Shield, Search } from 'lucide-react';
+import { LayoutDashboard, Users, ScrollText, Settings, LogOut, Shield } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import './AdminLayout.css';
 
@@ -10,7 +9,7 @@ export default function AdminLayout() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/admin/login');
+    void navigate('/admin/login');
   };
 
   const menuItems = [

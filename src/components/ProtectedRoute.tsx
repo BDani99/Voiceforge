@@ -1,10 +1,15 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import LoadingScreen from './LoadingScreen/LoadingScreen';
 
 /** Redirects to the matching login page unless the visitor may see the route. */
-export default function ProtectedRoute({ children, adminOnly = false }) {
+interface ProtectedRouteProps {
+  children: ReactNode;
+  adminOnly?: boolean;
+}
+
+export default function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { session, loading, isAdmin, isBanned } = useAuth();
   const { pathname } = useLocation();
 
@@ -23,5 +28,5 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 }

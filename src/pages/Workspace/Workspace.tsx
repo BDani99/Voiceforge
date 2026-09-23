@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { notify } from '../../utils/notificationService';
-import { Type, X, Plus } from 'lucide-react';
+import { Type, Plus } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import VoiceSettings from './components/VoiceSettings/VoiceSettings';
@@ -14,6 +14,7 @@ import { useSpeechify } from '../../hooks/useSpeechify';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useDictionary } from '../../hooks/useDictionary';
+import type { PresetSettings } from '../../types/models';
 import './Workspace.css';
 
 function Workspace() {
@@ -29,10 +30,11 @@ function Workspace() {
   const isBatchRunningRef = useRef(false);
 
   useEffect(() => {
-    const handleKeyDown = async (e) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       // Space must keep its normal meaning while typing or on a focused control.
-      const isInteractive = e.target.isContentEditable
-        || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName);
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      const isInteractive = !!target && (target.isContentEditable
+        || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName));
 
       if (e.ctrlKey && e.key === 'Enter') {
         // Generate all ungenerated
@@ -40,8 +42,8 @@ function Workspace() {
         isBatchRunningRef.current = true;
         notify.info('Generating all blocks...');
         try {
-          for (let i = 0; i < speechify.paragraphs.length; i++) {
-            if (speechify.paragraphs[i].text.trim() && !speechify.paragraphs[i].isGenerated) {
+          for (const [i, paragraph] of speechify.paragraphs.entries()) {
+            if (paragraph.text.trim() && !paragraph.isGenerated) {
               await speechify.generateParagraphAudio(i, false);
             }
           }
@@ -56,12 +58,13 @@ function Workspace() {
         notify.success('Project synced manually (Auto-save is also active)');
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const listener = (e: KeyboardEvent) => void handleKeyDown(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
   }, [speechify, audioPlayer]);
 
   useEffect(() => {
-    const handleFallback = (e) => {
+    const handleFallback = (e: CustomEvent<{ message: string }>) => {
       notify.warning(e.detail.message);
     };
     window.addEventListener('speechify-fallback-warning', handleFallback);
@@ -103,12 +106,10 @@ function Workspace() {
     globalEmphasis: voiceSettings.globalEmphasis
   };
 
-  const applyPreset = (settings) => {
+  const applyPreset = (settings: PresetSettings) => {
     if (settings.language) speechify.handleLanguageChange(settings.language);
     if (settings.voice) speechify.handleVoiceChange(settings.voice);
-    if (settings.globalDefaults) {
-      Object.entries(settings.globalDefaults).forEach(([k, v]) => voiceSettings.updateGlobalDefaults(k, v));
-    }
+    if (settings.globalDefaults) voiceSettings.replaceGlobalDefaults(settings.globalDefaults);
     if (settings.pauseStrength !== undefined) voiceSettings.setPauseStrength(settings.pauseStrength);
     if (settings.usePauseCustom !== undefined) voiceSettings.setUsePauseCustom(settings.usePauseCustom);
     if (settings.pauseCustomTime !== undefined) voiceSettings.setPauseCustomTime(settings.pauseCustomTime);
@@ -178,7 +179,7 @@ function Workspace() {
                         key={paragraph.id || index}
                         paragraph={paragraph}
                         index={index}
-                        onUpdate={speechify.updateParagraph}
+                        onUpdate={speechify.updateParagraphText}
                         onDelete={speechify.deleteParagraph}
                         onPlay={audioPlayer.handlePlayParagraph}
                         onGenerate={speechify.generateParagraphAudio}

@@ -1,12 +1,41 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
+import { useMemo, useState, useEffect, type ReactNode } from 'react';
 import { Volume2, Settings2, X, BookOpen } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, EMOTION_OPTIONS, EMPHASIS_OPTIONS } from '../../../../constants/voiceConstants';
 import Dictionary from '../Dictionary/Dictionary';
 import Accordion from '../../../../components/Accordion/Accordion';
 import Modal from '../../../../components/Modal/Modal';
 import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
+import type { DictionaryApi } from '../../../../hooks/useDictionary';
+import type { Voice } from '../../../../types/models';
 import './RightPanel.css';
+
+interface RightPanelProps {
+  selectedLanguage: string;
+  handleLanguageChange: (language: string) => void;
+  selectedVoice: string;
+  handleVoiceChange: (voiceId: string) => void;
+  isLoading: boolean;
+  isLoadingVoices: boolean;
+  voices: Voice[];
+  emotion: string;
+  setEmotion: (emotion: string) => void;
+  globalEmphasis: string;
+  handleEmphasisChange: (emphasis: string) => void;
+  useFadeTransitions: boolean;
+  setUseFadeTransitions: (enabled: boolean) => void;
+  fadeInDuration: number;
+  setFadeInDuration: (ms: number) => void;
+  fadeOutDuration: number;
+  setFadeOutDuration: (ms: number) => void;
+  useParagraphGap: boolean;
+  setUseParagraphGap: (enabled: boolean) => void;
+  paragraphGapPause: number;
+  setParagraphGapPause: (ms: number) => void;
+  dictionary: DictionaryApi;
+  error?: string;
+  voiceSettingsComponent?: ReactNode;
+  presetsComponent?: ReactNode;
+}
 
 function RightPanel({
   selectedLanguage,
@@ -34,7 +63,7 @@ function RightPanel({
   error,
   voiceSettingsComponent,
   presetsComponent
-}) {
+}: RightPanelProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedGender, setSelectedGender] = useState('');
 
@@ -57,11 +86,9 @@ function RightPanel({
 
   // Auto-select first voice when filter narrows list and current voice is no longer available
   useEffect(() => {
-    if (filteredVoices.length > 0) {
-      const voiceInList = filteredVoices.find(v => v.id === selectedVoice);
-      if (!voiceInList) {
-        handleVoiceChange(filteredVoices[0].id);
-      }
+    const [first] = filteredVoices;
+    if (first && !filteredVoices.some(v => v.id === selectedVoice)) {
+      handleVoiceChange(first.id);
     }
   }, [filteredVoices, selectedVoice, handleVoiceChange]);
 
@@ -260,32 +287,5 @@ function RightPanel({
   );
 }
 
-RightPanel.propTypes = {
-  selectedLanguage: PropTypes.string.isRequired,
-  handleLanguageChange: PropTypes.func.isRequired,
-  selectedVoice: PropTypes.string.isRequired,
-  handleVoiceChange: PropTypes.func.isRequired,
-  isLoading: PropTypes.bool.isRequired,
-  isLoadingVoices: PropTypes.bool.isRequired,
-  voices: PropTypes.array.isRequired,
-  emotion: PropTypes.string.isRequired,
-  setEmotion: PropTypes.func.isRequired,
-  globalEmphasis: PropTypes.string.isRequired,
-  handleEmphasisChange: PropTypes.func.isRequired,
-  useFadeTransitions: PropTypes.bool.isRequired,
-  setUseFadeTransitions: PropTypes.func.isRequired,
-  fadeInDuration: PropTypes.number.isRequired,
-  setFadeInDuration: PropTypes.func.isRequired,
-  fadeOutDuration: PropTypes.number.isRequired,
-  setFadeOutDuration: PropTypes.func.isRequired,
-  useParagraphGap: PropTypes.bool.isRequired,
-  setUseParagraphGap: PropTypes.func.isRequired,
-  paragraphGapPause: PropTypes.number.isRequired,
-  setParagraphGapPause: PropTypes.func.isRequired,
-  dictionary: PropTypes.object.isRequired,
-  error: PropTypes.string,
-  voiceSettingsComponent: PropTypes.node,
-  presetsComponent: PropTypes.node
-};
 
 export default RightPanel;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Users, Activity, Database, Zap, TrendingUp } from 'lucide-react';
@@ -6,6 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { parseDashboardStats } from '../../utils/adminStats';
 import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
 import './AdminDashboard.css';
 
@@ -16,8 +17,8 @@ export default function AdminDashboard() {
     cacheHits: 0,
     dailyActive: 0
   });
-  const [chartData, setChartData] = useState([]);
-  const [pieData, setPieData] = useState([]);
+  const [chartData, setChartData] = useState<{ name: string; characters: number }[]>([]);
+  const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const COLORS = ['#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#14B8A6'];
@@ -25,27 +26,28 @@ export default function AdminDashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       try {
         // All aggregation happens in the database (see the admin_dashboard_stats migration).
         const { data, error } = await supabase.rpc('admin_dashboard_stats', { days: 14 });
         if (error) throw error;
+        const result = parseDashboardStats(data);
         if (cancelled) return;
 
         setStats({
-          totalUsers: data.total_users,
-          apiCalls: data.api_calls,
-          cacheHits: data.cached_files,
-          dailyActive: data.daily_active
+          totalUsers: result.totalUsers,
+          apiCalls: result.apiCalls,
+          cacheHits: result.cachedFiles,
+          dailyActive: result.dailyActive
         });
 
         // 'YYYY-MM-DD' is parsed as a local date so the label does not shift by timezone.
-        setChartData(data.daily_characters.map(({ day, characters }) => ({
+        setChartData(result.dailyCharacters.map(({ day, characters }) => ({
           name: new Date(`${day}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           characters
         })));
 
-        const languages = data.languages.map(({ language, characters }) => ({ name: language, value: characters }));
+        const languages = result.languages.map(({ language, characters }) => ({ name: language, value: characters }));
         setPieData(languages.length > 0 ? languages : [{ name: 'No data', value: 1 }]);
       } catch (err) {
         console.error(err);
@@ -118,7 +120,7 @@ export default function AdminDashboard() {
               <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} tickMargin={10} />
-                <YAxis stroke="#94A3B8" fontSize={12} tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val} />
+                <YAxis stroke="#94A3B8" fontSize={12} tickFormatter={(val: number) => (val >= 1000 ? `${(val / 1000).toFixed(1)}k` : String(val))} />
                 <RechartsTooltip
                   contentStyle={{ backgroundColor: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f8fafc' }}
                   itemStyle={{ color: '#8B5CF6' }}
@@ -144,7 +146,7 @@ export default function AdminDashboard() {
                   dataKey="value"
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <RechartsTooltip

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { notify, getErrorMessage } from '../../utils/notificationService';
+import { isPasswordBreached, passwordStrength, validatePassword } from '../../utils/passwordPolicy';
 import { Eye, EyeOff } from 'lucide-react';
 import './Auth.css';
 
@@ -15,23 +16,14 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [strength, setStrength] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    if (isLogin) return;
-    let s = 0;
-    if (password.length > 5) s += 1;
-    if (password.length > 8) s += 1;
-    if (/[A-Z]/.test(password)) s += 1;
-    if (/[0-9!@#$%^&*]/.test(password)) s += 1;
-    setStrength(s);
-  }, [password, isLogin]);
+  const strength = useMemo(() => passwordStrength(password), [password]);
 
-  const handleAuth = async (e) => {
+  const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
@@ -39,21 +31,30 @@ export default function Auth() {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate('/projects');
+        void navigate('/projects');
       } else {
         if (password !== confirmPassword) throw new Error('Passwords do not match.');
-        if (password.length < 8) throw new Error('Password must be at least 8 characters.');
-        if (strength < 2) throw new Error('Password is too weak.');
-        const { error } = await supabase.auth.signUp({ 
-          email, 
+        const policyError = validatePassword(password);
+        if (policyError) throw new Error(policyError);
+        if (await isPasswordBreached(password)) {
+          throw new Error('This password appeared in a known data breach. Please choose a different one.');
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
           password,
-          options: {
-            data: { display_name: displayName }
-          }
+          options: { data: { display_name: displayName } },
         });
         if (error) throw error;
-        notify.success('Registration successful! You can now log in.');
-        setIsLogin(true);
+        // With e-mail confirmation on, an address that is already registered comes back without identities.
+        if (data.user?.identities?.length === 0) throw new Error('User already registered');
+
+        if (data.session) {
+          notify.success('Account created. Welcome to VoiceForge!'); // the route guard forwards to the app
+        } else {
+          notify.success('Registration successful! Check your e-mail to confirm your account, then log in.');
+          setIsLogin(true);
+        }
       }
     } catch (error) {
       const friendlyMessage = getErrorMessage(error);

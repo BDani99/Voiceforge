@@ -1,13 +1,16 @@
-import React from 'react';
-import PropTypes from 'prop-types';
 import { Sparkles, Download, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './Header.css';
 
-/**
- * Header component for the application.
- */
-function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs }) {
+interface HeaderProps {
+  handleExportAll: () => void | Promise<void>;
+  handleResetAll: () => void | Promise<void>;
+  isLoading: boolean;
+  totalParagraphs: number;
+}
+
+/** Header of the workspace: navigation, export and reset. */
+function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs }: HeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -42,12 +45,5 @@ function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs })
     </header>
   );
 }
-
-Header.propTypes = {
-  handleExportAll: PropTypes.func.isRequired,
-  handleResetAll: PropTypes.func.isRequired,
-  isLoading: PropTypes.bool.isRequired,
-  totalParagraphs: PropTypes.number.isRequired,
-};
 
 export default Header;

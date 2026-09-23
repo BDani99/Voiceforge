@@ -1,20 +1,27 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import './ErrorBoundary.css';
 
-/** Last line of defence: a render error shows a recovery screen instead of a blank page. */
-export default class ErrorBoundary extends React.Component {
-  state = { hasError: false };
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
 
-  static getDerivedStateFromError() {
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+/** Last line of defence: a render error shows a recovery screen instead of a blank page. */
+export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  override state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error, info) {
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('Unhandled render error:', error, info.componentStack);
   }
 
-  render() {
+  override render(): ReactNode {
     if (!this.state.hasError) return this.props.children;
 
     return (
@@ -28,7 +35,3 @@ export default class ErrorBoundary extends React.Component {
     );
   }
 }
-
-ErrorBoundary.propTypes = {
-  children: PropTypes.node,
-};

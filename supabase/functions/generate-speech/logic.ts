@@ -78,7 +78,7 @@ export function parseGenerateRequest(body: unknown): ParseResult {
 /** Picks the value for Access-Control-Allow-Origin. No configured origins means any origin. */
 export function resolveAllowedOrigin(requestOrigin: string, allowedOrigins: string[]): string {
   if (allowedOrigins.length === 0) return '*'
-  return allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0]
+  return allowedOrigins.includes(requestOrigin) ? requestOrigin : (allowedOrigins[0] ?? '*')
 }
 
 export interface HttpFailure {

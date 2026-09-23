@@ -1,9 +1,21 @@
-import React, { useEffect, useId, useRef } from 'react';
-import PropTypes from 'prop-types';
+import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Download, Trash2 } from 'lucide-react';
 import { useModalBehavior } from '../../hooks/useModalBehavior';
+import type { ConfirmDetail } from '../../types/models';
 import './ConfirmModal.css';
+
+interface ConfirmModalProps {
+  isOpen: boolean;
+  title?: string;
+  message?: string;
+  details?: ConfirmDetail[];
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: 'default' | 'warning' | 'danger';
+  onConfirm: () => void;
+  onCancel: () => void;
+}
 
 export default function ConfirmModal({
   isOpen,
@@ -15,7 +27,7 @@ export default function ConfirmModal({
   variant = 'default',
   onConfirm,
   onCancel
-}) {
+}: ConfirmModalProps) {
   const dialogRef = useRef(null);
   const titleId = useId();
   useModalBehavior(isOpen, onCancel, dialogRef);
@@ -24,7 +36,7 @@ export default function ConfirmModal({
   // pressing Enter on "Cancel" must never confirm.
   useEffect(() => {
     if (!isOpen || variant === 'danger') return undefined;
-    const handleKey = (e) => {
+    const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) onConfirm();
     };
     window.addEventListener('keydown', handleKey);
@@ -79,15 +91,3 @@ export default function ConfirmModal({
     document.body
   );
 }
-
-ConfirmModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  title: PropTypes.string,
-  message: PropTypes.string,
-  details: PropTypes.arrayOf(PropTypes.shape({ icon: PropTypes.string, text: PropTypes.string })),
-  confirmLabel: PropTypes.string,
-  cancelLabel: PropTypes.string,
-  variant: PropTypes.oneOf(['default', 'warning', 'danger']),
-  onConfirm: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired,
-};
