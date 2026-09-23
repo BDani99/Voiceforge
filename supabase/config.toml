@@ -1,0 +1,8 @@
+# Local Supabase CLI configuration. Only what the CLI needs to deploy this repo.
+project_id = "voiceforge"
+
+# The function authenticates the caller itself (auth.getUser) and must answer CORS preflight
+# requests, which carry no JWT, so gateway-level JWT verification has to stay off.
+# Without this entry `supabase functions deploy` would switch it back on.
+[functions.generate-speech]
+verify_jwt = false
