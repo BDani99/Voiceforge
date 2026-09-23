@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { supabase } from './services/supabase';
+import { AuthProvider } from './context/AuthProvider';
+import { useAuth } from './hooks/useAuth';
 import Auth from './pages/Auth/Auth';
 import Workspace from './pages/Workspace/Workspace';
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -16,56 +17,21 @@ import LoadingScreen from './components/LoadingScreen/LoadingScreen';
 import SystemAnnouncement from './components/SystemAnnouncement/SystemAnnouncement';
 
 function ProtectedRoute({ children, adminOnly = false }) {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchSessionAndProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      if (session?.user) {
-        const { data } = await supabase.from('users_profile').select('*').eq('id', session.user.id).single();
-        setProfile(data);
-      }
-      setLoading(false);
-    };
-
-    fetchSessionAndProfile();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        const { data } = await supabase.from('users_profile').select('*').eq('id', session.user.id).single();
-        setProfile(data);
-      } else {
-        setProfile(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { session, loading, isAdmin, isBanned } = useAuth();
+  const { pathname } = useLocation();
 
   if (loading) return <LoadingScreen />;
 
-  if (!session) {
-    return <Navigate to={adminOnly ? "/admin/login" : "/login"} replace />;
+  if (!session || isBanned) {
+    return <Navigate to={adminOnly ? '/admin/login' : '/login'} replace />;
   }
-
-  if (profile?.is_banned) {
-    supabase.auth.signOut();
-    return <Navigate to="/login" replace />;
-  }
-
-  const isAdmin = profile?.role === 'admin' || session.user.email === 'admin@voiceforge.com';
 
   if (adminOnly && !isAdmin) {
     return <Navigate to="/projects" replace />;
   }
 
-  if (!adminOnly && isAdmin && !window.location.pathname.startsWith('/admin')) {
+  // Admins only work in the admin area.
+  if (!adminOnly && isAdmin && !pathname.startsWith('/admin')) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
@@ -78,44 +44,31 @@ function App() {
       <Toaster position="top-center" />
       <SystemAnnouncement />
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Auth />} />
-          <Route path="/register" element={<Auth />} />
-          
-          <Route path="/admin/login" element={<AdminAuth />} />
-          
-          <Route path="/admin" element={
-            <ProtectedRoute adminOnly={true}>
-              <AdminLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="logs" element={<AdminLogs />} />
-            <Route path="settings" element={<AdminSettings />} />
-          </Route>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Auth />} />
+            <Route path="/register" element={<Auth />} />
 
-          <Route path="/projects" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route 
-            path="/profile" 
-            element={
-              <ProtectedRoute>
-                <Profile />
+            <Route path="/admin/login" element={<AdminAuth />} />
+
+            <Route path="/admin" element={
+              <ProtectedRoute adminOnly>
+                <AdminLayout />
               </ProtectedRoute>
-            } 
-          />
-          <Route path="/app/:projectId" element={
-            <ProtectedRoute>
-              <Workspace />
-            </ProtectedRoute>
-          } />
-          <Route path="*" element={<Navigate to="/projects" replace />} />
-        </Routes>
+            }>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="logs" element={<AdminLogs />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+
+            <Route path="/projects" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/app/:projectId" element={<ProtectedRoute><Workspace /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/projects" replace />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </>
   );

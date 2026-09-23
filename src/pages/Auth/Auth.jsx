@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { notify, getErrorMessage } from '../../utils/notificationService';
 import { Eye, EyeOff } from 'lucide-react';
 import './Auth.css';
@@ -18,6 +19,7 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { session, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (isLogin) return;
@@ -40,6 +42,7 @@ export default function Auth() {
         navigate('/projects');
       } else {
         if (password !== confirmPassword) throw new Error('Passwords do not match.');
+        if (password.length < 8) throw new Error('Password must be at least 8 characters.');
         if (strength < 2) throw new Error('Password is too weak.');
         const { error } = await supabase.auth.signUp({ 
           email, 
@@ -89,6 +92,8 @@ export default function Auth() {
       </div>
     );
   };
+
+  if (!authLoading && session) return <Navigate to="/projects" replace />;
 
   return (
     <div className="auth-container">

@@ -21,9 +21,9 @@ export default function AdminAuth() {
       if (error) throw error;
       
       // Verify admin role
-      const { data: profile } = await supabase.from('users_profile').select('role').eq('id', data.user.id).single();
+      const { data: profile } = await supabase.from('users_profile').select('role').eq('id', data.user.id).maybeSingle();
 
-      if (profile?.role !== 'admin' && data.user.email !== 'admin@voiceforge.com') {
+      if (profile?.role !== 'admin') {
         // Not an admin, sign out immediately
         await supabase.auth.signOut();
         throw new Error("You don't have permission to access the admin area.");
@@ -63,6 +63,7 @@ export default function AdminAuth() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          {errorMsg && <div className="auth-error">{errorMsg}</div>}
           <button type="submit" disabled={loading} style={{ background: '#c084fc' }}>
             {loading ? 'Authenticating...' : 'Secure Login'}
           </button>
