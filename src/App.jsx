@@ -1,42 +1,16 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthProvider';
-import { useAuth } from './hooks/useAuth';
+import ProtectedRoute from './components/ProtectedRoute';
 import Auth from './pages/Auth/Auth';
 import Workspace from './pages/Workspace/Workspace';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Profile from './pages/Profile/Profile';
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import AdminAuth from './pages/Admin/AdminAuth';
-import AdminLayout from './pages/Admin/AdminLayout';
-import AdminUsers from './pages/Admin/AdminUsers';
-import AdminLogs from './pages/Admin/AdminLogs';
-import AdminSettings from './pages/Admin/AdminSettings';
 import LoadingScreen from './components/LoadingScreen/LoadingScreen';
 import SystemAnnouncement from './components/SystemAnnouncement/SystemAnnouncement';
 
-function ProtectedRoute({ children, adminOnly = false }) {
-  const { session, loading, isAdmin, isBanned } = useAuth();
-  const { pathname } = useLocation();
-
-  if (loading) return <LoadingScreen />;
-
-  if (!session || isBanned) {
-    return <Navigate to={adminOnly ? '/admin/login' : '/login'} replace />;
-  }
-
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/projects" replace />;
-  }
-
-  // Admins only work in the admin area.
-  if (!adminOnly && isAdmin && !pathname.startsWith('/admin')) {
-    return <Navigate to="/admin/dashboard" replace />;
-  }
-
-  return children;
-}
+const AdminArea = lazy(() => import('./pages/Admin/AdminArea'));
 
 function App() {
   return (
@@ -49,19 +23,11 @@ function App() {
             <Route path="/login" element={<Auth />} />
             <Route path="/register" element={<Auth />} />
 
-            <Route path="/admin/login" element={<AdminAuth />} />
-
-            <Route path="/admin" element={
-              <ProtectedRoute adminOnly>
-                <AdminLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="logs" element={<AdminLogs />} />
-              <Route path="settings" element={<AdminSettings />} />
-            </Route>
+            <Route path="/admin/*" element={
+              <Suspense fallback={<LoadingScreen />}>
+                <AdminArea />
+              </Suspense>
+            } />
 
             <Route path="/projects" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

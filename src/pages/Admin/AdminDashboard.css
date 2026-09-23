@@ -1,16 +1,16 @@
-.dashboard-container {
+.admin-layout .dashboard-container {
   display: flex;
   flex-direction: column;
   gap: 32px;
 }
 
-.kpi-grid {
+.admin-layout .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
 }
 
-.kpi-card {
+.admin-layout .kpi-card {
   background: #1E293B;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
@@ -21,13 +21,13 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-.kpi-header {
+.admin-layout .kpi-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.kpi-title {
+.admin-layout .kpi-title {
   color: #94A3B8;
   font-size: 0.9rem;
   font-weight: 600;
@@ -35,19 +35,19 @@
   letter-spacing: 0.05em;
 }
 
-.kpi-icon {
+.admin-layout .kpi-icon {
   color: #8B5CF6;
   opacity: 0.8;
 }
 
-.kpi-value {
+.admin-layout .kpi-value {
   font-size: 2.5rem;
   font-weight: 700;
   color: #f8fafc;
   line-height: 1;
 }
 
-.kpi-trend {
+.admin-layout .kpi-trend {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -55,32 +55,32 @@
   font-weight: 500;
 }
 
-.kpi-trend.positive {
+.admin-layout .kpi-trend.positive {
   color: #10B981;
 }
 
-.kpi-trend.negative {
+.admin-layout .kpi-trend.negative {
   color: #EF4444;
 }
 
-.kpi-trend span {
+.admin-layout .kpi-trend span {
   color: #94A3B8;
 }
 
 /* Charts Grid */
-.charts-grid {
+.admin-layout .charts-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 24px;
 }
 
 @media (max-width: 1100px) {
-  .charts-grid {
+  .admin-layout .charts-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.chart-card {
+.admin-layout .chart-card {
   background: #1E293B;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
@@ -91,19 +91,19 @@
   gap: 20px;
 }
 
-.chart-card h3 {
+.admin-layout .chart-card h3 {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
   color: #f8fafc;
 }
 
-.chart-wrapper {
+.admin-layout .chart-wrapper {
   flex: 1;
   min-height: 300px;
 }
 
-.pie-card .chart-wrapper {
+.admin-layout .pie-card .chart-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;

@@ -1,28 +1,28 @@
-.admin-logs-container {
+.admin-layout .admin-logs-container {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
-.logs-header h2 {
+.admin-layout .logs-header h2 {
   margin: 0 0 8px 0;
   color: #f8fafc;
   font-size: 1.5rem;
 }
 
-.logs-header p {
+.admin-layout .logs-header p {
   margin: 0;
   color: #94a3b8;
   font-size: 0.95rem;
 }
 
-.action-type-cell {
+.admin-layout .action-type-cell {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.badge-admin_topup {
+.admin-layout .badge-admin_topup {
   background: rgba(16, 185, 129, 0.1);
   color: #34d399;
   padding: 4px 8px;
@@ -32,7 +32,7 @@
   text-transform: uppercase;
 }
 
-.badge-admin_deduct {
+.admin-layout .badge-admin_deduct {
   background: rgba(239, 68, 68, 0.1);
   color: #f87171;
   padding: 4px 8px;
@@ -42,7 +42,7 @@
   text-transform: uppercase;
 }
 
-.badge-generation {
+.admin-layout .badge-generation {
   background: rgba(139, 92, 246, 0.1);
   color: #c084fc;
   padding: 4px 8px;
@@ -52,11 +52,11 @@
   text-transform: uppercase;
 }
 
-.reason-cell {
+.admin-layout .reason-cell {
   max-width: 300px;
 }
 
-.reason-text {
+.admin-layout .reason-text {
   background: rgba(15, 23, 42, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 6px 10px;
@@ -70,7 +70,7 @@
   max-width: 100%;
 }
 
-.text-emerald-400 { color: #34d399; }
-.text-red-400 { color: #f87171; }
-.text-purple-400 { color: #c084fc; }
-.text-muted { color: #64748b; font-style: italic; }
+.admin-layout .text-emerald-400{ color: #34d399; }
+.admin-layout .text-red-400{ color: #f87171; }
+.admin-layout .text-purple-400{ color: #c084fc; }
+.admin-layout .text-muted{ color: #64748b; font-style: italic; }
