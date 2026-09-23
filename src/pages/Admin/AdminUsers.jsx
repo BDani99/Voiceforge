@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
-import { Search, Filter, MoreVertical, X, ShieldAlert, Plus, Minus } from 'lucide-react';
+import { Search, MoreVertical, X, ShieldAlert, Plus, Minus } from 'lucide-react';
 import './AdminUsers.css';
+
+const PAGE_SIZE = 20;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 20;
+  const [hasNextPage, setHasNextPage] = useState(false);
 
   // Modal State
   const [selectedUser, setSelectedUser] = useState(null);
@@ -18,24 +22,42 @@ export default function AdminUsers() {
   const [creditAction, setCreditAction] = useState('add');
 
   useEffect(() => {
-    fetchUsers();
-  }, [page]);
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    let query = supabase
       .from('users_profile')
       .select('*')
       .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      
-    if (!error && data) {
-      setUsers(data);
-    } else {
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE); // one extra row tells us if there is a next page
+
+    if (UUID_RE.test(debouncedSearch)) {
+      query = query.eq('id', debouncedSearch);
+    } else if (debouncedSearch) {
+      // Characters with a meaning in LIKE patterns are dropped instead of escaped.
+      query = query.ilike('email', `%${debouncedSearch.replace(/[%_\\]/g, '')}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) {
       notify.error(error, 'Error loading users');
+    } else {
+      setUsers(data.slice(0, PAGE_SIZE));
+      setHasNextPage(data.length > PAGE_SIZE);
     }
     setLoading(false);
-  };
+  }, [page, debouncedSearch]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleAdjustCredits = async (e) => {
     e.preventDefault();
@@ -51,21 +73,33 @@ export default function AdminUsers() {
 
     const actualAmount = creditAction === 'add' ? amount : -amount;
     const newBalance = Math.max(0, selectedUser.available_characters + actualAmount);
+    const appliedAmount = Math.abs(newBalance - selectedUser.available_characters);
 
     try {
-      const { error } = await supabase
+      // Only update if the balance is still the one shown, so a generation running
+      // at the same time cannot be overwritten by this transaction.
+      const { data: updated, error } = await supabase
         .from('users_profile')
         .update({ available_characters: newBalance })
-        .eq('id', selectedUser.id);
-        
-      if (error) throw error;
+        .eq('id', selectedUser.id)
+        .eq('available_characters', selectedUser.available_characters)
+        .select('id');
 
-      await supabase.from('usage_logs').insert([{
+      if (error) throw error;
+      if (!updated || updated.length === 0) {
+        notify.warning('The balance changed in the meantime. The list was refreshed, please try again.');
+        closeModal();
+        fetchUsers();
+        return;
+      }
+
+      const { error: logError } = await supabase.from('usage_logs').insert([{
         user_id: selectedUser.id,
-        character_count: amount,
+        character_count: appliedAmount,
         action_type: creditAction === 'add' ? 'admin_topup' : 'admin_deduct',
         reason: creditReason.trim()
       }]);
+      if (logError) notify.warning('Credits were updated, but writing the audit log failed.');
 
       notify.success(`Credits updated for: ${selectedUser.email}`);
       setUsers(users.map(u => u.id === selectedUser.id ? { ...u, available_characters: newBalance } : u));
@@ -101,11 +135,6 @@ export default function AdminUsers() {
     setCreditAction('add');
   };
 
-  const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.id.includes(searchTerm)
-  );
-
   return (
     <div className="admin-users-container">
       <div className="users-toolbar">
@@ -118,9 +147,6 @@ export default function AdminUsers() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="filter-btn">
-          <Filter size={18} /> Filters
-        </button>
       </div>
 
       <div className="admin-table-wrapper">
@@ -138,12 +164,12 @@ export default function AdminUsers() {
           <tbody>
             {loading ? (
               <tr><td colSpan="6" style={{ textAlign: 'center' }}>Loading...</td></tr>
-            ) : filteredUsers.map(user => (
+            ) : users.map(user => (
               <tr key={user.id} onClick={() => setSelectedUser(user)} style={{ cursor: 'pointer' }}>
                 <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{user.id.substring(0, 8)}...</td>
-                <td>{user.email}</td>
+                <td>{user.email || '—'}</td>
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
-                <td style={{ fontWeight: '600', color: '#c084fc' }}>{user.available_characters.toLocaleString()}</td>
+                <td style={{ fontWeight: '600', color: '#c084fc' }}>{(user.available_characters ?? 0).toLocaleString()}</td>
                 <td>
                   {user.is_banned ? (
                     <span className="admin-badge error">Suspended</span>
@@ -163,7 +189,7 @@ export default function AdminUsers() {
       <div className="pagination">
         <button disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
         <span>Page: {page + 1}</span>
-        <button onClick={() => setPage(page + 1)}>Next</button>
+        <button disabled={!hasNextPage} onClick={() => setPage(page + 1)}>Next</button>
       </div>
 
       {/* User Details Modal */}
@@ -179,7 +205,7 @@ export default function AdminUsers() {
               <div className="user-info-grid">
                 <div>
                   <label>Email</label>
-                  <p>{selectedUser.email}</p>
+                  <p>{selectedUser.email || '—'}</p>
                 </div>
                 <div>
                   <label>ID</label>
@@ -191,7 +217,7 @@ export default function AdminUsers() {
                 </div>
                 <div>
                   <label>Current Balance</label>
-                  <p className="balance-text">{selectedUser.available_characters.toLocaleString()}</p>
+                  <p className="balance-text">{(selectedUser.available_characters ?? 0).toLocaleString()}</p>
                 </div>
               </div>
 

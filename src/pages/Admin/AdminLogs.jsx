@@ -1,61 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
-import { Search, Filter, ArrowUpRight, ArrowDownRight, Settings } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownRight, Settings, Volume2 } from 'lucide-react';
 import './AdminLogs.css';
+
+const PAGE_SIZE = 50;
 
 export default function AdminLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 50;
+  const [hasNextPage, setHasNextPage] = useState(false);
 
-  useEffect(() => {
-    fetchLogs();
-  }, [page]);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
-    
-    // We need to join with users_profile to get the email, but usage_logs only has user_id
-    // Supabase supports joining if there's a foreign key. Let's try that.
+
+    // Joins users_profile for the email; needs a foreign key from usage_logs.user_id.
+    // One extra row tells us whether there is an older page.
     const { data, error } = await supabase
       .from('usage_logs')
       .select('*, users_profile(email)')
       .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      
-    if (!error && data) {
-      setLogs(data);
-    } else {
-      // Fallback if join fails (e.g. no FK setup properly)
-      const { data: rawLogs } = await supabase
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+    let rows = data;
+    if (error) {
+      // Fallback if the join fails (e.g. no foreign key configured)
+      const { data: rawLogs, error: rawError } = await supabase
         .from('usage_logs')
         .select('*')
         .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-        
-      if (rawLogs) setLogs(rawLogs);
-      else notify.error(error, 'Error loading logs');
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+      if (rawError) notify.error(rawError, 'Error loading logs');
+      rows = rawLogs;
+    }
+
+    if (rows) {
+      setLogs(rows.slice(0, PAGE_SIZE));
+      setHasNextPage(rows.length > PAGE_SIZE);
     }
     setLoading(false);
-  };
+  }, [page]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const getActionIcon = (action) => {
     switch (action) {
       case 'admin_topup': return <ArrowUpRight size={16} className="text-emerald-400" />;
       case 'admin_deduct': return <ArrowDownRight size={16} className="text-red-400" />;
       case 'generation': return <Settings size={16} className="text-purple-400" />;
+      case 'preview': return <Volume2 size={16} className="text-purple-400" />;
       default: return null;
     }
   };
 
   const filteredLogs = logs.filter(log => {
     const term = searchTerm.toLowerCase();
-    const email = log.users_profile?.email || log.user_id;
-    return email.toLowerCase().includes(term) || 
-           log.action_type.toLowerCase().includes(term) ||
+    const email = log.users_profile?.email || log.user_id || '';
+    return email.toLowerCase().includes(term) ||
+           (log.action_type || '').toLowerCase().includes(term) ||
            (log.reason && log.reason.toLowerCase().includes(term));
   });
 
@@ -76,9 +82,6 @@ export default function AdminLogs() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="filter-btn">
-          <Filter size={18} /> Filters
-        </button>
       </div>
 
       <div className="admin-table-wrapper">
@@ -101,7 +104,7 @@ export default function AdminLogs() {
                   {new Date(log.created_at).toLocaleString()}
                 </td>
                 <td style={{ fontFamily: 'monospace' }}>
-                  {log.users_profile?.email || log.user_id.substring(0,8) + '...'}
+                  {log.users_profile?.email || `${(log.user_id || '').substring(0, 8)}...`}
                 </td>
                 <td>
                   <div className="action-type-cell">
@@ -113,7 +116,7 @@ export default function AdminLogs() {
                 </td>
                 <td style={{ fontWeight: 'bold' }}>
                   {log.action_type === 'admin_topup' ? '+' : log.action_type === 'admin_deduct' ? '-' : ''}
-                  {log.character_count.toLocaleString()}
+                  {(log.character_count ?? 0).toLocaleString()}
                 </td>
                 <td className="reason-cell">
                   {log.reason ? (
@@ -131,7 +134,7 @@ export default function AdminLogs() {
       <div className="pagination">
         <button disabled={page === 0} onClick={() => setPage(page - 1)}>Newer</button>
         <span>Page: {page + 1}</span>
-        <button onClick={() => setPage(page + 1)}>Older</button>
+        <button disabled={!hasNextPage} onClick={() => setPage(page + 1)}>Older</button>
       </div>
     </div>
   );

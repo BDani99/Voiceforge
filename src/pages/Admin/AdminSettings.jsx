@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Save, Settings2, Bell } from 'lucide-react';
@@ -13,55 +13,49 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchSettings();
+  const fetchSettings = useCallback(async () => {
+    const { data, error } = await supabase.from('system_settings').select('*');
+    if (error) {
+      // The table may not exist yet: keep the defaults.
+      console.warn('Could not load system_settings.', error);
+    } else if (data) {
+      setSettings(prev => {
+        const next = { ...prev };
+        data.forEach(item => {
+          if (item.key === 'default_credits') next.default_credits = item.value;
+          if (item.key === 'announcement') next.announcement = item.value;
+        });
+        return next;
+      });
+    }
+    setLoading(false);
   }, []);
 
-  const fetchSettings = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.from('system_settings').select('*');
-      if (error) {
-        // Handle gracefully if table doesn't exist yet
-        console.warn('system_settings table might not exist yet.', error);
-        setLoading(false);
-        return;
-      }
-
-      if (data) {
-        const newSettings = { ...settings };
-        data.forEach(item => {
-          if (item.key === 'default_credits') newSettings.default_credits = item.value;
-          if (item.key === 'announcement') newSettings.announcement = item.value;
-        });
-        setSettings(newSettings);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const saveSettings = async (e) => {
     e.preventDefault();
+
+    const credits = Number(settings.default_credits);
+    if (!Number.isInteger(credits) || credits < 0) {
+      notify.warning('Starting credits must be a whole number, 0 or more.');
+      return;
+    }
+
     setSaving(true);
-    
     try {
-      // Upsert default credits
-      await supabase.from('system_settings').upsert([
-        { key: 'default_credits', value: settings.default_credits }
+      const { error } = await supabase.from('system_settings').upsert([
+        { key: 'default_credits', value: String(credits) },
+        { key: 'announcement', value: settings.announcement.trim() },
       ]);
-      
-      // Upsert announcement
-      await supabase.from('system_settings').upsert([
-        { key: 'announcement', value: settings.announcement }
-      ]);
+      if (error) throw error;
 
       notify.success('System settings saved successfully!');
     } catch (err) {
       console.error(err);
-      notify.error(err, 'Error saving settings. Does system_settings table exist?');
+      notify.error(err, 'Error saving settings');
     } finally {
       setSaving(false);
     }
