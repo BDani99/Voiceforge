@@ -57,7 +57,8 @@ export async function storeAudio(hashKey, blob) {
     // The file is usable even if registering it in the shared cache fails.
     const { error: cacheError } = await supabase
       .from('audio_cache')
-      .upsert({ hash_key: hashKey, audio_url: data.publicUrl });
+      // Rows are immutable (clients may only insert), an existing entry already points to this file.
+      .upsert({ hash_key: hashKey, audio_url: data.publicUrl }, { onConflict: 'hash_key', ignoreDuplicates: true });
     if (cacheError) console.error('Failed to register audio in cache', cacheError);
 
     return data.publicUrl;
