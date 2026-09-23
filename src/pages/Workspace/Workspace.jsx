@@ -72,7 +72,16 @@ function Workspace() {
   const totalParagraphs = speechify.paragraphs.filter(p => p.text.trim()).length;
   const generatedCount = speechify.generatedParagraphs.size;
 
-  const handleResetAll = () => {
+  const handleResetAll = async () => {
+    // Auto-save would persist the cleared state, so this must be an explicit decision.
+    const confirmed = await confirm({
+      title: 'Clear everything?',
+      message: 'This deletes all text of this project and resets your voice settings. It cannot be undone.',
+      confirmLabel: 'Clear all',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
     speechify.resetSpeechify();
     audioPlayer.resetAudioPlayer();
     voiceSettings.resetSettings();
@@ -158,7 +167,7 @@ function Workspace() {
                       <button
                         className="add-paragraph-top-btn"
                         onClick={speechify.addParagraphAtStart}
-                        title="Add new paragraph at the beginning"
+                        title="Add new paragraph at the beginning" aria-label="Add new paragraph at the beginning"
                       >
                         <Plus size={16} />
                         Add paragraph at beginning

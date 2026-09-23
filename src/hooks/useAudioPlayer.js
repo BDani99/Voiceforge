@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { concatenateAudio } from '../utils/audioProcessing';
 import { fetchAudioBlob } from '../services/audioStorage';
 
@@ -24,6 +24,13 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
   const isStoppingRef = useRef(false);
   const paragraphGapTimeoutRef = useRef(null);
 
+  // Playback callbacks chain themselves from audio events, so they must always see the
+  // latest paragraphs and functions instead of the render they were created in.
+  const latest = useRef({});
+  useEffect(() => {
+    latest.current = { paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause };
+  });
+
   const getGlobalAudio = useCallback(() => currentAudioRef.current, []);
 
   const playNextInQueue = useCallback(async (startIndex = null) => {
@@ -43,8 +50,8 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     setActiveIndex(nextIndex);
     setIsPlaying(true);
 
-    let audioBlob = paragraphs[nextIndex]?.audioBlob;
-    const paragraph = paragraphs[nextIndex];
+    let audioBlob = latest.current.paragraphs[nextIndex]?.audioBlob;
+    const paragraph = latest.current.paragraphs[nextIndex];
 
     // If already generated but blob not in memory, fetch it from the stored URL directly
     if (!audioBlob && paragraph?.isGenerated && paragraph?.audioUrl) {
@@ -52,10 +59,10 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
         audioBlob = await fetchAudioBlob(paragraph.audioUrl);
       } catch (e) {
         console.error('Failed to fetch audio from URL, regenerating...', e);
-        audioBlob = await generateParagraphAudio(nextIndex, false);
+        audioBlob = await latest.current.generateParagraphAudio(nextIndex, false);
       }
     } else if (!audioBlob) {
-      audioBlob = await generateParagraphAudio(nextIndex, false);
+      audioBlob = await latest.current.generateParagraphAudio(nextIndex, false);
     }
 
     if (audioBlob && !isStoppingRef.current) {
@@ -71,10 +78,10 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
           if (audio._blobUrl) URL.revokeObjectURL(audio._blobUrl);
           if (!isStoppingRef.current) {
             if (audioQueueRef.current.length > 0) {
-              if (useParagraphGap && paragraphGapPause > 0) {
+              if (latest.current.useParagraphGap && latest.current.paragraphGapPause > 0) {
                 paragraphGapTimeoutRef.current = setTimeout(() => {
                   playNextInQueue();
-                }, paragraphGapPause);
+                }, latest.current.paragraphGapPause);
               } else {
                 playNextInQueue();
               }
@@ -86,23 +93,23 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
 
         audio.onerror = () => {
           if (audio._blobUrl) URL.revokeObjectURL(audio._blobUrl);
-          setError(`Error playing paragraph ${nextIndex + 1}`);
+          latest.current.setError(`Error playing paragraph ${nextIndex + 1}`);
           if (!isStoppingRef.current) playNextInQueue();
         };
 
         // Pre-generate next (only if truly not generated and not in storage)
         if (audioQueueRef.current.length > 0 && !isStoppingRef.current) {
           const upcomingIndex = audioQueueRef.current[0];
-          const upcomingParagraph = paragraphs[upcomingIndex];
+          const upcomingParagraph = latest.current.paragraphs[upcomingIndex];
           const needsPreGen = !upcomingParagraph?.isGenerated && !upcomingParagraph?.audioUrl;
           if (needsPreGen) {
-            generateParagraphAudio(upcomingIndex, false);
+            latest.current.generateParagraphAudio(upcomingIndex, false);
           }
         }
 
         await audio.play();
       } catch (err) {
-        setError(`Failed to play audio: ${err.message}`);
+        latest.current.setError(`Failed to play audio: ${err.message}`);
         if (currentAudioRef.current && currentAudioRef.current._blobUrl) {
           URL.revokeObjectURL(currentAudioRef.current._blobUrl);
         }
@@ -111,7 +118,7 @@ export const useAudioPlayer = (speechify, settings, setIsLoading, showConfirm) =
     } else if (!isStoppingRef.current) {
       playNextInQueue();
     }
-  }, [paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause]);
+  }, []);
 
   const handlePlayParagraph = useCallback(async (index) => {
     if (activeIndex === index) {

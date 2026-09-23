@@ -262,18 +262,15 @@ export const useSpeechify = (settings, projectId) => {
 
   // ------------------------------------------------------- paragraph editing
 
+  // Only the first paragraph splits (pasting a long text there); all other paragraphs are kept.
   const handleSplitText = useCallback((text) => {
-    if (!text.trim()) {
-      setParagraphs([newParagraph()]);
-      return;
-    }
-
     let parts = text.split(/\n\s*\n/).filter((p) => p.trim());
     if (parts.length <= 1) {
       const lines = text.split('\n').filter((p) => p.trim());
       if (lines.length > 1) parts = lines;
     }
-    setParagraphs(parts.length > 0 ? parts.map(newParagraph) : [newParagraph(text)]);
+    const replacement = parts.length > 0 ? parts.map(newParagraph) : [newParagraph(text)];
+    setParagraphs((prev) => [...replacement, ...prev.slice(1)]);
   }, []);
 
   const updateParagraph = useCallback((index, field, value) => {
