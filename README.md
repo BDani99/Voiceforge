@@ -1,12 +1,83 @@
-# React + Vite
+# VoiceForge
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Text-to-speech studio built with React and Supabase. Users write text in paragraphs, pick a
+voice, language and speech style, generate audio through the [Speechify API](https://docs.sws.speechify.com/)
+and export the result. An admin area manages users, credits and system settings.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 18, React Router 7, Vite 7
+- Supabase: auth, Postgres (RLS), storage and one Edge Function
+- Speechify API, called **only** from the Edge Function so the API key never reaches the browser
+- Recharts for the usage charts, Vitest for unit tests
 
-## Expanding the ESLint configuration
+## Getting started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+cp .env.example .env      # fill in your Supabase URL and anon key
+npm run dev               # http://localhost:3000
+```
+
+| Script            | Purpose                              |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Dev server                           |
+| `npm run build`   | Production build into `dist/`        |
+| `npm run preview` | Serve the production build           |
+| `npm run lint`    | ESLint (fails on warnings)           |
+| `npm test`        | Unit tests (SSML builder, chunking)  |
+
+## Supabase setup
+
+1. Apply the SQL files in [supabase/migrations](supabase/migrations) in filename order
+   (SQL editor or `supabase db push`). The `protect_profile_columns` migration is required:
+   it stops users from editing their own credits, ban flag or role through the API.
+2. Set the Edge Function secrets and deploy it:
+
+   ```bash
+   supabase secrets set SPEECHIFY_API_KEY=<key>
+   # optional: restrict browser origins (default: any)
+   supabase secrets set ALLOWED_ORIGINS=https://your-app.example.com
+   supabase functions deploy generate-speech
+   ```
+
+3. Make sure a public storage bucket named `voiceovers` exists.
+4. Give your admin account `role = 'admin'` in `users_profile`. The client trusts the
+   profile role only; enforce the same rule in your RLS policies for the admin tables.
+
+### How credits work
+
+The Edge Function is the single place that charges credits. It checks the session and the ban
+flag, reserves the characters with an optimistic-concurrency update (parallel requests cannot
+overdraw an account), calls Speechify and refunds the reservation if generation fails. Audio
+that is already in the shared cache costs nothing.
+
+## Project structure
+
+```
+src/
+  main.jsx, App.jsx        entry point, routes and route guard
+  context/                 AuthProvider (session + profile, loaded once)
+  pages/
+    Auth/                  login / register
+    Dashboard/             project list
+    Profile/               usage stats and account settings
+    Workspace/             editor; its own widgets live in Workspace/components
+    Admin/                 admin login, layout, users, logs, settings
+  components/              shared UI (Accordion, Modal, ConfirmModal, CustomSelect, Header, ...)
+  hooks/                   useAuth, useSpeechify, useAudioPlayer, useVoiceSettings, useConfirm
+  services/                supabase client, speechifyService (Edge Function client), audioStorage
+  utils/                   ssml builder, audio processing (fade, concat), wav encoder, text chunking
+  constants/               languages, emotions, pause options
+  styles/                  theme tokens and global reset
+supabase/
+  functions/generate-speech/   Edge Function (Deno)
+  migrations/                  SQL migrations
+```
+
+## Notes
+
+- `VITE_*` variables are embedded into the browser bundle. Only the Supabase URL and anon key
+  belong there. Never put the Speechify key in a `VITE_*` variable.
+- Global CSS is shared between pages (there are no CSS modules), so pick unique class names
+  when adding styles.
