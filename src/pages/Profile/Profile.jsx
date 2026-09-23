@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notificationService';
@@ -35,22 +35,13 @@ export default function Profile() {
   // Settings state
   const [displayName, setDisplayName] = useState('');
   const [savingName, setSavingName] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [newEmailInput, setNewEmailInput] = useState('');
-  const [savingEmail, setSavingEmail] = useState(false);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) { navigate('/login'); return; }
@@ -116,7 +107,11 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const handleSaveName = async (e) => {
     e.preventDefault();
@@ -137,29 +132,6 @@ export default function Profile() {
     }
   };
 
-  const handleSaveEmail = async (e) => {
-    e.preventDefault();
-    if (!newEmailInput || newEmailInput === user?.email) {
-      setIsEditingEmail(false);
-      return;
-    }
-    setSavingEmail(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email: newEmailInput });
-      if (error) throw error;
-      notify.success('Check your new email to confirm the change!');
-      setIsEditingEmail(false);
-    } catch (err) {
-      if (err.message && err.message.toLowerCase().includes('invalid')) {
-        notify.error('Kérlek használj valós e-mail szolgáltatót (pl. @gmail.com)! A rendszer biztonsági szűrője blokkolja a hamis (pl. @e.com) domaineket.');
-      } else {
-        notify.error(err, 'Failed to update email');
-      }
-    } finally {
-      setSavingEmail(false);
-    }
-  };
-
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -175,7 +147,6 @@ export default function Profile() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       notify.success('Password changed successfully!');
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {

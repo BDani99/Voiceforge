@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../../../services/supabase';
 import { notify } from '../../../../utils/notificationService';
-import { Plus, Trash2, Save, BookOpen } from 'lucide-react';
-import Accordion from '../../../../components/Accordion/Accordion';
+import { Plus, Trash2 } from 'lucide-react';
 import LoadingScreen from '../../../../components/LoadingScreen/LoadingScreen';
 import './Dictionary.css';
 
@@ -12,11 +11,19 @@ export default function Dictionary({ onUpdateGlobal }) {
   const [replacementWord, setReplacementWord] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Keep the latest callback in a ref so the initial fetch does not re-run when the parent re-renders.
+  const onUpdateGlobalRef = useRef(onUpdateGlobal);
   useEffect(() => {
-    fetchDictionary();
+    onUpdateGlobalRef.current = onUpdateGlobal;
+  }, [onUpdateGlobal]);
+
+  const updateParentHook = useCallback((data) => {
+    // Convert to the text format expected by parseCustomReplacements
+    const textFormat = data.map(d => `${d.original_word} -> ${d.replacement_word}`).join('\n');
+    onUpdateGlobalRef.current(textFormat);
   }, []);
 
-  const fetchDictionary = async () => {
+  const fetchDictionary = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -34,13 +41,11 @@ export default function Dictionary({ onUpdateGlobal }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [updateParentHook]);
 
-  const updateParentHook = (data) => {
-    // Convert to the text format expected by speechifyService
-    const textFormat = data.map(d => `${d.original_word} -> ${d.replacement_word}`).join('\n');
-    onUpdateGlobal(textFormat);
-  };
+  useEffect(() => {
+    fetchDictionary();
+  }, [fetchDictionary]);
 
   const addEntry = async (e) => {
     e.preventDefault();
