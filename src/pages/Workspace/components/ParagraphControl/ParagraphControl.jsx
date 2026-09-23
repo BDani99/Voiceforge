@@ -174,7 +174,7 @@ function ParagraphControl({
             onClick={() => onGenerate(index, true)}
             disabled={isGenerating || !paragraph.text.trim()}
             className="para-btn generate-btn"
-            title="Generate/Regenerate audio"
+            title="Generate/Regenerate audio" aria-label="Generate/Regenerate audio"
           >
             {isGenerating ? <Loader2 size={18} className="spinning loader-icon" /> : <Mic size={18} />}
           </button>
@@ -182,7 +182,7 @@ function ParagraphControl({
             onClick={handlePlayPause}
             disabled={isGenerating || !paragraph.text.trim()}
             className="para-btn play-btn"
-            title={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"}
+            title={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"} aria-label={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"}
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
@@ -190,7 +190,7 @@ function ParagraphControl({
             onClick={() => onDelete(index)}
             disabled={isGenerating}
             className="para-btn delete-btn"
-            title="Delete paragraph"
+            title="Delete paragraph" aria-label="Delete paragraph"
           >
             <Trash2 size={18} />
           </button>
@@ -205,6 +205,7 @@ function ParagraphControl({
           </button>
         )}
         <textarea
+          aria-label={`Paragraph ${index + 1} text`}
           ref={textareaRef}
           value={paragraph.text}
           onChange={(e) => handleTextChange(e.target.value)}

@@ -13,7 +13,7 @@ function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs })
   return (
     <header className="app-header">
       <div className="header-left">
-        <button className="back-to-dashboard-btn" onClick={() => navigate('/projects')} title="Back to Dashboard">
+        <button className="back-to-dashboard-btn" onClick={() => navigate('/projects')} title="Back to Dashboard" aria-label="Back to Dashboard">
           <ArrowLeft size={20} />
         </button>
         <div className="logo">
@@ -26,7 +26,7 @@ function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs })
           onClick={handleExportAll}
           disabled={isLoading || totalParagraphs === 0}
           className="export-all-btn"
-          title="Export all paragraphs as single audio file"
+          title="Export all paragraphs as single audio file" aria-label="Export all paragraphs as single audio file"
         >
           <Download size={20} />
           <span>Export</span>
@@ -34,7 +34,7 @@ function Header({ handleExportAll, handleResetAll, isLoading, totalParagraphs })
         <button
           onClick={handleResetAll}
           className="reset-btn"
-          title="Clear all text and settings"
+          title="Clear all text and settings" aria-label="Clear all text and settings"
         >
           <RefreshCw size={20} />
         </button>

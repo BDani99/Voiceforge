@@ -36,7 +36,7 @@ function VoiceSettings({
                 </div>
               </div>
             ) : (
-              <CustomSelect
+              <CustomSelect ariaLabel="Pitch preset"
                 value={globalDefaults.pitch}
                 onChange={(val) => updateGlobalDefaults('pitch', val)}
                 options={[
@@ -51,7 +51,7 @@ function VoiceSettings({
             <button
               onClick={() => updateGlobalDefaults('usePitchCustom', !globalDefaults.usePitchCustom)}
               className="custom-toggle-btn"
-              title={globalDefaults.usePitchCustom ? "Switch to preset" : "Switch to custom"}
+              title={globalDefaults.usePitchCustom ? "Switch to preset" : "Switch to custom"} aria-label={globalDefaults.usePitchCustom ? "Switch to preset" : "Switch to custom"}
             >
               Custom %
             </button>
@@ -76,7 +76,7 @@ function VoiceSettings({
                 </div>
               </div>
             ) : (
-              <CustomSelect
+              <CustomSelect ariaLabel="Speed preset"
                 value={globalDefaults.rate}
                 onChange={(val) => updateGlobalDefaults('rate', val)}
                 options={[
@@ -91,7 +91,7 @@ function VoiceSettings({
             <button
               onClick={() => updateGlobalDefaults('useRateCustom', !globalDefaults.useRateCustom)}
               className="custom-toggle-btn"
-              title={globalDefaults.useRateCustom ? "Switch to preset" : "Switch to custom"}
+              title={globalDefaults.useRateCustom ? "Switch to preset" : "Switch to custom"} aria-label={globalDefaults.useRateCustom ? "Switch to preset" : "Switch to custom"}
             >
               Custom %
             </button>
@@ -116,7 +116,7 @@ function VoiceSettings({
                 </div>
               </div>
             ) : (
-              <CustomSelect
+              <CustomSelect ariaLabel="Volume preset"
                 value={globalDefaults.volume}
                 onChange={(val) => updateGlobalDefaults('volume', val)}
                 options={[
@@ -132,7 +132,7 @@ function VoiceSettings({
             <button
               onClick={() => updateGlobalDefaults('useVolumeCustom', !globalDefaults.useVolumeCustom)}
               className="custom-toggle-btn"
-              title={globalDefaults.useVolumeCustom ? "Switch to preset" : "Switch to custom"}
+              title={globalDefaults.useVolumeCustom ? "Switch to preset" : "Switch to custom"} aria-label={globalDefaults.useVolumeCustom ? "Switch to preset" : "Switch to custom"}
             >
               Custom %
             </button>
@@ -158,7 +158,7 @@ function VoiceSettings({
                 </div>
               </div>
             ) : (
-              <CustomSelect
+              <CustomSelect ariaLabel="Sentence pause strength"
                 value={pauseStrength}
                 onChange={(val) => setPauseStrength(val)}
                 options={[
@@ -174,7 +174,7 @@ function VoiceSettings({
             <button
               onClick={() => setUsePauseCustom(!usePauseCustom)}
               className="custom-toggle-btn"
-              title={usePauseCustom ? "Switch to preset" : "Switch to custom"}
+              title={usePauseCustom ? "Switch to preset" : "Switch to custom"} aria-label={usePauseCustom ? "Switch to preset" : "Switch to custom"}
             >
               Custom ms
             </button>

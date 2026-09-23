@@ -75,7 +75,7 @@ export default function AdminLogs() {
       <div className="users-toolbar">
         <div className="search-box">
           <Search size={18} className="search-icon" />
-          <input 
+          <input aria-label="Search by email, action, or reason" 
             type="text" 
             placeholder="Search by email, action, or reason..." 
             value={searchTerm}

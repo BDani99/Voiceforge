@@ -88,7 +88,7 @@ export default function Presets({ currentSettings, onApplyPreset }) {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Voice Presets">
         <form onSubmit={savePreset} className="preset-save-form">
-          <input
+          <input aria-label="New Preset Name"
             placeholder="New Preset Name"
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
@@ -115,7 +115,7 @@ export default function Presets({ currentSettings, onApplyPreset }) {
                   <button
                     className="preset-card-delete"
                     onClick={(e) => deletePreset(preset.id, e)}
-                    title="Delete"
+                    title="Delete" aria-label="Delete"
                   >
                     <Trash2 size={14} />
                   </button>

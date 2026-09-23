@@ -232,7 +232,7 @@ export default function Profile() {
             <span className="credit-amount">{profile?.available_characters?.toLocaleString() || '0'}</span>
             <span className="credit-label">credits</span>
           </div>
-          <button onClick={handleLogout} className="logout-btn" title="Logout">
+          <button onClick={handleLogout} className="logout-btn" title="Logout" aria-label="Logout">
             <LogOut size={18} />
           </button>
         </div>
@@ -410,7 +410,7 @@ export default function Profile() {
               <form className="settings-body" onSubmit={handleSaveName}>
                 <div className="form-group">
                   <label>Display Name</label>
-                  <input
+                  <input aria-label="Enter your display name"
                     type="text"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
@@ -438,13 +438,13 @@ export default function Profile() {
                 <div className="form-group">
                   <label>New Password</label>
                   <div className="input-with-icon">
-                    <input
+                    <input aria-label="New password" autoComplete="new-password"
                       type={showNewPw ? 'text' : 'password'}
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="Enter new password"
                     />
-                    <button type="button" className="pw-toggle" onClick={() => setShowNewPw(!showNewPw)}>
+                    <button type="button" className="pw-toggle" onClick={() => setShowNewPw(!showNewPw)} aria-label={showNewPw ? 'Hide password' : 'Show password'}>
                       {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
@@ -452,13 +452,13 @@ export default function Profile() {
                 <div className="form-group">
                   <label>Confirm New Password</label>
                   <div className="input-with-icon">
-                    <input
+                    <input aria-label="Confirm new password" autoComplete="new-password"
                       type={showConfirmPw ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="Confirm new password"
                     />
-                    <button type="button" className="pw-toggle" onClick={() => setShowConfirmPw(!showConfirmPw)}>
+                    <button type="button" className="pw-toggle" onClick={() => setShowConfirmPw(!showConfirmPw)} aria-label={showConfirmPw ? 'Hide password' : 'Show password'}>
                       {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>

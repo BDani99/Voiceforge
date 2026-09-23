@@ -101,7 +101,7 @@ export default function Auth() {
         <h1>VoiceForge</h1>
         <h2>{isLogin ? 'Login' : 'Register'}</h2>
         <form onSubmit={handleAuth}>
-          <input
+          <input aria-label="Email" autoComplete="email"
             type="email"
             placeholder="Email"
             value={email}
@@ -110,7 +110,7 @@ export default function Auth() {
           />
 
           {!isLogin && (
-            <input
+            <input aria-label="Display Name" autoComplete="nickname"
               type="text"
               placeholder="Display Name (Optional)"
               value={displayName}
@@ -119,7 +119,7 @@ export default function Auth() {
           )}
 
           <div className="password-input-wrapper">
-            <input
+            <input aria-label="Password" autoComplete={isLogin ? 'current-password' : 'new-password'}
               type={showPassword ? 'text' : 'password'}
               placeholder="Password"
               value={password}
@@ -130,6 +130,7 @@ export default function Auth() {
               type="button"
               className="eye-toggle-btn"
               onClick={() => setShowPassword(v => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
               tabIndex={-1}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -140,7 +141,7 @@ export default function Auth() {
 
           {!isLogin && (
             <div className="password-input-wrapper">
-              <input
+              <input aria-label="Confirm Password" autoComplete="new-password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Confirm Password"
                 value={confirmPassword}
@@ -151,6 +152,7 @@ export default function Auth() {
                 type="button"
                 className="eye-toggle-btn"
                 onClick={() => setShowConfirmPassword(v => !v)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 tabIndex={-1}
               >
                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}

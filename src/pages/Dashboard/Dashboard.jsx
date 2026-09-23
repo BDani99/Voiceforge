@@ -174,7 +174,7 @@ export default function Dashboard() {
             <span>{credits?.toLocaleString() || 0}</span>
             <span className="credit-label">credits</span>
           </div>
-          <button className="profile-btn" onClick={() => navigate('/profile')} title="My Profile">
+          <button className="profile-btn" onClick={() => navigate('/profile')} title="My Profile" aria-label="My Profile">
             <User size={20} />
           </button>
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
@@ -190,7 +190,7 @@ export default function Dashboard() {
 
           <div className="search-box">
             <Search size={18} className="search-icon" />
-            <input 
+            <input aria-label="Search your projects" 
               type="text" 
               placeholder="Search your projects..." 
               value={searchQuery}
@@ -262,16 +262,16 @@ export default function Dashboard() {
                 <div className="project-actions">
                   {project.is_deleted ? (
                     <>
-                      <button className="action-btn restore-btn" onClick={(e) => restoreProject(project.id, e)} title="Restore">
+                      <button className="action-btn restore-btn" onClick={(e) => restoreProject(project.id, e)} title="Restore" aria-label="Restore">
                         <ArchiveRestore size={18} />
                         <span>Restore</span>
                       </button>
-                      <button className="action-btn hard-delete-btn" onClick={(e) => hardDeleteProject(project.id, e)} title="Permanently Delete">
+                      <button className="action-btn hard-delete-btn" onClick={(e) => hardDeleteProject(project.id, e)} title="Permanently Delete" aria-label="Permanently Delete">
                         <Trash2 size={18} />
                       </button>
                     </>
                   ) : (
-                    <button className="action-btn delete-btn" onClick={(e) => softDeleteProject(project.id, e)} title="Move to Trash">
+                    <button className="action-btn delete-btn" onClick={(e) => softDeleteProject(project.id, e)} title="Move to Trash" aria-label="Move to Trash">
                       <Trash2 size={18} />
                     </button>
                   )}
@@ -300,7 +300,7 @@ export default function Dashboard() {
         <form className="create-project-form" onSubmit={createProject}>
           <div className="form-group">
             <label>Project Title</label>
-            <input
+            <input aria-label="e.g. My Awesome Audiobook"
               type="text"
               placeholder="e.g. My Awesome Audiobook"
               value={newTitle}

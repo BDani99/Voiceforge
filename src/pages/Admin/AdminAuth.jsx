@@ -49,14 +49,14 @@ export default function AdminAuth() {
         <h1>VoiceForge Admin</h1>
         <h2>Restricted Access</h2>
         <form onSubmit={handleAdminLogin}>
-          <input
+          <input aria-label="Admin Email" autoComplete="username"
             type="email"
             placeholder="Admin Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <input
+          <input aria-label="Password" autoComplete="current-password"
             type="password"
             placeholder="Password"
             value={password}

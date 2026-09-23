@@ -79,7 +79,7 @@ export default function AdminSettings() {
           <form onSubmit={saveSettings} className="settings-form">
             <div className="form-group">
               <label>Starting Credits (for new accounts)</label>
-              <input 
+              <input aria-label="e.g., 10000" 
                 type="number" 
                 value={settings.default_credits}
                 onChange={(e) => setSettings({...settings, default_credits: e.target.value})}
@@ -105,7 +105,7 @@ export default function AdminSettings() {
           <form onSubmit={saveSettings} className="settings-form">
             <div className="form-group">
               <label>Message displayed to users</label>
-              <textarea 
+              <textarea aria-label="e.g., Maintenance expected on Sunday from 10:00 PM" 
                 value={settings.announcement}
                 onChange={(e) => setSettings({...settings, announcement: e.target.value})}
                 placeholder="e.g., Maintenance expected on Sunday from 10:00 PM..."

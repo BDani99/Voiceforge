@@ -1,6 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Download, Trash2, HelpCircle } from 'lucide-react';
+import { AlertTriangle, Download, Trash2 } from 'lucide-react';
+import { useModalBehavior } from '../../hooks/useModalBehavior';
 import './ConfirmModal.css';
 
 export default function ConfirmModal({
@@ -14,15 +16,20 @@ export default function ConfirmModal({
   onConfirm,
   onCancel
 }) {
+  const dialogRef = useRef(null);
+  const titleId = useId();
+  useModalBehavior(isOpen, onCancel, dialogRef);
+
+  // Enter confirms, except for destructive dialogs and when a button has focus:
+  // pressing Enter on "Cancel" must never confirm.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || variant === 'danger') return undefined;
     const handleKey = (e) => {
-      if (e.key === 'Escape') onCancel();
-      if (e.key === 'Enter') onConfirm();
+      if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) onConfirm();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, onConfirm, onCancel]);
+  }, [isOpen, variant, onConfirm]);
 
   if (!isOpen) return null;
 
@@ -30,12 +37,20 @@ export default function ConfirmModal({
 
   return createPortal(
     <div className="confirm-overlay" onClick={onCancel}>
-      <div className={`confirm-dialog confirm-${variant}`} onClick={e => e.stopPropagation()}>
+      <div
+        className={`confirm-dialog confirm-${variant}`}
+        role={variant === 'danger' ? 'alertdialog' : 'dialog'}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        ref={dialogRef}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="confirm-header">
           <div className={`confirm-icon-wrap confirm-icon-${variant}`}>
             <IconComponent size={20} />
           </div>
-          <h3 className="confirm-title">{title}</h3>
+          <h3 className="confirm-title" id={titleId}>{title}</h3>
         </div>
 
         {details.length > 0 && (
@@ -52,10 +67,10 @@ export default function ConfirmModal({
         {message && <p className="confirm-message">{message}</p>}
 
         <div className="confirm-actions">
-          <button className="confirm-cancel-btn" onClick={onCancel}>
+          <button type="button" className="confirm-cancel-btn" onClick={onCancel}>
             {cancelLabel}
           </button>
-          <button className={`confirm-ok-btn confirm-ok-${variant}`} onClick={onConfirm}>
+          <button type="button" className={`confirm-ok-btn confirm-ok-${variant}`} onClick={onConfirm}>
             {confirmLabel}
           </button>
         </div>
@@ -64,3 +79,15 @@ export default function ConfirmModal({
     document.body
   );
 }
+
+ConfirmModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  title: PropTypes.string,
+  message: PropTypes.string,
+  details: PropTypes.arrayOf(PropTypes.shape({ icon: PropTypes.string, text: PropTypes.string })),
+  confirmLabel: PropTypes.string,
+  cancelLabel: PropTypes.string,
+  variant: PropTypes.oneOf(['default', 'warning', 'danger']),
+  onConfirm: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+};

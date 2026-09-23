@@ -25,12 +25,12 @@ export default function Dictionary({ dictionary }) {
     <div className="dictionary-container">
       <h3>Custom Pronunciations</h3>
       <form onSubmit={handleSubmit} className="dictionary-form">
-        <input
+        <input aria-label="Original word"
           placeholder="Original word"
           value={originalWord}
           onChange={(e) => setOriginalWord(e.target.value)}
         />
-        <input
+        <input aria-label="Pronounce as"
           placeholder="Pronounce as"
           value={replacementWord}
           onChange={(e) => setReplacementWord(e.target.value)}
@@ -48,7 +48,7 @@ export default function Dictionary({ dictionary }) {
               <span className="arrow">→</span>
               <span className="repl">{entry.replacement_word}</span>
             </div>
-            <button onClick={() => deleteEntry(entry.id)} className="delete-btn" title="Delete">
+            <button onClick={() => deleteEntry(entry.id)} className="delete-btn" title="Delete" aria-label="Delete">
               <Trash2 size={16} />
             </button>
           </div>

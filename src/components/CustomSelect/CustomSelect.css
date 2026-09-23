@@ -98,7 +98,8 @@
   font-size: 0.95rem;
 }
 
-.custom-select-option:hover {
+.custom-select-option:hover,
+.custom-select-option.active {
   background: var(--bg-card-hover);
   color: var(--text-primary);
 }

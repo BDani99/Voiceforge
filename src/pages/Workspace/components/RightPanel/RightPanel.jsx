@@ -71,7 +71,7 @@ function RightPanel({
       <Accordion title="Voice & Language" icon={Volume2} defaultOpen={true}>
         <div className="setting-group">
           <label htmlFor="language-select">Language</label>
-          <CustomSelect
+          <CustomSelect ariaLabel="Language"
             value={selectedLanguage}
             onChange={(val) => handleLanguageChange(val)}
             disabled={isLoading}
@@ -81,7 +81,7 @@ function RightPanel({
 
         <div className="setting-group">
           <label>Gender</label>
-          <CustomSelect
+          <CustomSelect ariaLabel="Gender"
             value={selectedGender}
             onChange={(val) => setSelectedGender(val)}
             disabled={isLoading}
@@ -95,7 +95,7 @@ function RightPanel({
 
         <div className="setting-group">
           <label htmlFor="voice-select">Voice</label>
-          <CustomSelect
+          <CustomSelect ariaLabel="Voice"
             value={selectedVoice}
             onChange={(val) => handleVoiceChange(val)}
             disabled={isLoadingVoices || isLoading}
@@ -109,7 +109,7 @@ function RightPanel({
 
         <div className="setting-group">
           <label htmlFor="emotion-select">Emotion</label>
-          <CustomSelect
+          <CustomSelect ariaLabel="Emotion"
             value={emotion}
             onChange={(val) => setEmotion(val)}
             options={[
@@ -124,7 +124,7 @@ function RightPanel({
 
         <div className="setting-group">
           <label htmlFor="global-emphasis">Global Emphasis</label>
-          <CustomSelect
+          <CustomSelect ariaLabel="Global emphasis"
             value={globalEmphasis}
             onChange={(val) => handleEmphasisChange(val)}
             options={[

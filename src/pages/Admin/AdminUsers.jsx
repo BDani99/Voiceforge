@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { notify } from '../../utils/notificationService';
 import { Search, MoreVertical, X, ShieldAlert, Plus, Minus } from 'lucide-react';
+import { useModalBehavior } from '../../hooks/useModalBehavior';
 import './AdminUsers.css';
 
 const PAGE_SIZE = 20;
@@ -20,6 +21,8 @@ export default function AdminUsers() {
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
   const [creditAction, setCreditAction] = useState('add');
+
+  const modalRef = useRef(null);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -135,12 +138,14 @@ export default function AdminUsers() {
     setCreditAction('add');
   };
 
+  useModalBehavior(!!selectedUser, closeModal, modalRef);
+
   return (
     <div className="admin-users-container">
       <div className="users-toolbar">
         <div className="search-box">
           <Search size={18} className="search-icon" />
-          <input 
+          <input aria-label="Search by email or ID" 
             type="text" 
             placeholder="Search by email or ID..." 
             value={searchTerm}
@@ -165,7 +170,14 @@ export default function AdminUsers() {
             {loading ? (
               <tr><td colSpan="6" style={{ textAlign: 'center' }}>Loading...</td></tr>
             ) : users.map(user => (
-              <tr key={user.id} onClick={() => setSelectedUser(user)} style={{ cursor: 'pointer' }}>
+              <tr
+                key={user.id}
+                onClick={() => setSelectedUser(user)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setSelectedUser(user); }}
+                tabIndex={0}
+                aria-label={`Open details of ${user.email || user.id}`}
+                style={{ cursor: 'pointer' }}
+              >
                 <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{user.id.substring(0, 8)}...</td>
                 <td>{user.email || '—'}</td>
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
@@ -195,10 +207,18 @@ export default function AdminUsers() {
       {/* User Details Modal */}
       {selectedUser && (
         <div className="admin-modal-overlay" onClick={closeModal}>
-          <div className="admin-modal" onClick={e => e.stopPropagation()}>
+          <div
+            className="admin-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="User details"
+            tabIndex={-1}
+            ref={modalRef}
+            onClick={e => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h3>User Details</h3>
-              <button onClick={closeModal} className="close-btn"><X size={20} /></button>
+              <button type="button" onClick={closeModal} className="close-btn" aria-label="Close dialog"><X size={20} /></button>
             </div>
             
             <div className="modal-body">
@@ -244,7 +264,7 @@ export default function AdminUsers() {
                 
                 <div className="form-group">
                   <label>Amount (Characters)</label>
-                  <input 
+                  <input aria-label="e.g., 5000" 
                     type="number" 
                     value={creditAmount} 
                     onChange={e => setCreditAmount(e.target.value)} 
@@ -256,7 +276,7 @@ export default function AdminUsers() {
                 
                 <div className="form-group">
                   <label>Reason (Required for audit log)</label>
-                  <input 
+                  <input aria-label="e.g., Compensation for error" 
                     type="text" 
                     value={creditReason} 
                     onChange={e => setCreditReason(e.target.value)} 
@@ -277,6 +297,8 @@ export default function AdminUsers() {
                 <button 
                   className={`ban-btn ${selectedUser.is_banned ? 'unban' : ''}`}
                   onClick={toggleBanStatus}
+                  disabled={selectedUser.role === 'admin'}
+                  title={selectedUser.role === 'admin' ? 'Administrator accounts cannot be suspended' : undefined}
                 >
                   <ShieldAlert size={18} />
                   {selectedUser.is_banned ? 'Unban Account' : 'Suspend Account'}
