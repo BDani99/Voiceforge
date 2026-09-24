@@ -6,7 +6,7 @@ import { MarkList } from './EmotionControls';
 import type { Paragraph } from '../../../../types/models';
 
 const paragraph = (patch: Partial<Paragraph> = {}): Paragraph => ({
-  id: 'p1', text: 'It costs 3/4 of a dollar today', audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, emotion: '', segments: [], marks: [], ...patch,
+  id: 'p1', text: 'It costs 3/4 of a dollar today', audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, emotion: '', segments: [], marks: [], speechMarks: null, ...patch,
 });
 
 const setup = (patch: Partial<React.ComponentProps<typeof SelectionToolbar>> = {}) => {

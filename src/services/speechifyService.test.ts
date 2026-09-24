@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), concatenateAudio: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), concatenateAudio: vi.fn(), duration: vi.fn() }));
 
 vi.mock('./supabase', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock('../utils/audioProcessing', () => ({ concatenateAudio: mocks.concatenateAudio }));
+vi.mock('../utils/audioDuration', () => ({ audioDurationMs: mocks.duration }));
 
 const { default: speechify, SpeechServiceError } = await import('./speechifyService');
 
@@ -203,6 +204,70 @@ describe('synthesize', () => {
     expect(inputs.filter((i) => i.includes('speechify:style'))).toHaveLength(1);
     expect(inputs.find((i) => i.includes('speechify:style'))).toContain('<speechify:style emotion="warm">Omega delta.</speechify:style>');
     expect((mocks.concatenateAudio.mock.calls[0]?.[0] as Blob[]).length).toBe(mocks.invoke.mock.calls.length);
+  });
+});
+
+describe('speech marks', () => {
+  const marksFor = (words: [string, number, number, number, number][]) => ({
+    type: 'sentence',
+    chunks: words.map(([value, start, end, startTime, endTime]) => ({ type: 'word', value, start, end, start_time: startTime, end_time: endTime })),
+  });
+
+  it('returns the word timings with the audio', async () => {
+    mocks.duration.mockResolvedValue(900);
+    mocks.invoke.mockResolvedValue({ data: { ...audio, speech_marks: marksFor([['Hello', 0, 5, 50, 400], ['world', 6, 11, 450, 900]]) }, error: null });
+
+    const { blob, marks } = await speechify.generateSpeechDetailed('Hello world', 'v', 'en-US');
+
+    expect(blob).toBeInstanceOf(Blob);
+    expect(marks).toEqual({ durationMs: 900, words: [[0, 5, 50, 400], [6, 11, 450, 900]] });
+  });
+
+  it('has no timings when the service sent none, and the plain methods still return only the blob', async () => {
+    const detailed = await speechify.generateSpeechDetailed('Hello', 'v', 'en-US');
+    expect(detailed.marks).toBeNull();
+    await expect(speechify.generateSpeech('Hello again', 'v', 'en-US')).resolves.toBeInstanceOf(Blob);
+  });
+
+  it('keeps the timings in the in-memory cache', async () => {
+    mocks.duration.mockResolvedValue(500);
+    mocks.invoke.mockResolvedValue({ data: { ...audio, speech_marks: marksFor([['Hi', 0, 2, 10, 300]]) }, error: null });
+    await speechify.generateSpeechDetailed('Hi', 'v', 'en-US');
+    const again = await speechify.generateSpeechDetailed('Hi', 'v', 'en-US');
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
+    expect(again.marks?.words).toEqual([[0, 2, 10, 300]]);
+  });
+
+  it('joins the timings of chunks: text offsets add up and each chunk starts after the audio before it', async () => {
+    const sentence = 'Alpha beta gamma. ';
+    const text = sentence.repeat(120) + 'Omega delta.'; // second chunk starts inside the text
+    mocks.duration.mockImplementation((blob: Blob) => Promise.resolve(blob === joined ? 4500 : 2000));
+    const joined = new Blob(['joined']);
+    mocks.concatenateAudio.mockResolvedValue(joined);
+    mocks.invoke.mockResolvedValue({ data: { ...audio, speech_marks: marksFor([['first', 0, 5, 100, 500]]) }, error: null });
+
+    const { marks } = await speechify.synthesizeDetailed(text, 'v', 'en-US', {});
+
+    const calls = mocks.invoke.mock.calls.length;
+    expect(calls).toBeGreaterThanOrEqual(2);
+    expect(marks?.words).toHaveLength(calls);
+    // every chunk contributes one word; later chunks are shifted by the text and the time before them
+    const starts = marks?.words.map((w) => w[0]) ?? [];
+    const times = marks?.words.map((w) => w[2]) ?? [];
+    expect(starts).toEqual([...starts].sort((a, b) => a - b));
+    expect(times[1]).toBe(2100);
+    expect(marks?.durationMs).toBe(4500); // the length of the joined file
+  });
+
+  it('has no timings for a long text when one chunk lacks them', async () => {
+    const text = 'Alpha beta gamma. '.repeat(300);
+    mocks.concatenateAudio.mockResolvedValue(new Blob(['joined']));
+    mocks.duration.mockResolvedValue(1000);
+    mocks.invoke
+      .mockResolvedValueOnce({ data: { ...audio, speech_marks: marksFor([['a', 0, 1, 0, 100]]) }, error: null })
+      .mockResolvedValue({ data: audio, error: null });
+    const { marks } = await speechify.synthesizeDetailed(text, 'v', 'en-US', {});
+    expect(marks).toBeNull();
   });
 });
 

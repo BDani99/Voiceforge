@@ -42,7 +42,7 @@ const paragraph = (id: string, text: string, audioBlob: Blob | null = new Blob([
   wasCached: false,
   emotion: '',
   segments: [],
-  marks: [],
+  marks: [], speechMarks: null,
 });
 
 interface Setup {

@@ -4,11 +4,13 @@ import { queryMock, type QueryMock } from '../test/queryMock';
 import { useVoiceSettings } from './useVoiceSettings';
 import { useSpeechify } from './useSpeechify';
 import type * as NotificationService from '../utils/notificationService';
+import type { SpeechMarks } from '../utils/speechMarks';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getVoices: vi.fn(),
   synthesize: vi.fn(),
+  marks: vi.fn((): SpeechMarks | null => null),
   clearCache: vi.fn(),
   findCachedAudio: vi.fn(),
   storeAudio: vi.fn(),
@@ -19,7 +21,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../services/supabase', () => ({ supabase: { from: mocks.from } }));
 vi.mock('../services/speechifyService', () => ({
-  default: { getVoices: mocks.getVoices, synthesize: mocks.synthesize, clearCache: mocks.clearCache },
+  default: {
+    getVoices: mocks.getVoices,
+    synthesize: mocks.synthesize,
+    synthesizeDetailed: async (...args: unknown[]) => ({ blob: (await mocks.synthesize(...args)) as Blob, marks: mocks.marks() }),
+    clearCache: mocks.clearCache,
+  },
 }));
 vi.mock('../services/audioStorage', () => ({
   findCachedAudio: mocks.findCachedAudio,
@@ -230,6 +237,52 @@ describe('generation', () => {
       audioUrl: 'https://cdn.example/a.wav',
       wasCached: false,
     });
+  });
+
+  it('keeps the word timings of the audio, stores them with it and drops them when the text changes', async () => {
+    const marks: SpeechMarks = { durationMs: 900, words: [[0, 5, 50, 400]] };
+    mocks.marks.mockReturnValue(marks);
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+
+    await act(async () => {
+      await result.current.speechify.generateParagraphAudio(0);
+    });
+
+    expect(result.current.speechify.paragraphs[0]?.speechMarks).toEqual(marks);
+    expect(mocks.storeAudio).toHaveBeenCalledWith(expect.any(String), expect.any(Blob), marks);
+
+    act(() => result.current.speechify.updateParagraphText(0, 'First, changed'));
+    expect(result.current.speechify.paragraphs[0]?.speechMarks).toBeNull();
+  });
+
+  it('takes the word timings from the shared cache too', async () => {
+    const marks: SpeechMarks = { durationMs: 500, words: [[0, 5, 10, 300]] };
+    mocks.findCachedAudio.mockResolvedValue({ url: 'https://cdn.example/c.wav', blob: new Blob(['cached']), marks });
+    const { result } = await setup();
+
+    await act(async () => {
+      await result.current.speechify.generateParagraphAudio(0);
+    });
+
+    expect(mocks.findCachedAudio).toHaveBeenCalledWith(expect.any(String), 'First'.length);
+    expect(result.current.speechify.paragraphs[0]?.speechMarks).toEqual(marks);
+  });
+
+  it('loads the timings of stored audio from the cache table and ignores the ones that do not fit', async () => {
+    mocks.from.mockImplementation((table: string) => (table === 'audio_cache'
+      ? queryMock({
+        data: [
+          { audio_url: 'https://cdn.example/1.wav', speech_marks: { v: 1, durationMs: 900, words: [[0, 5, 50, 400]] } },
+          { audio_url: 'https://cdn.example/2.wav', speech_marks: { v: 1, durationMs: 900, words: [[0, 50, 50, 400]] } },
+        ],
+      }).builder
+      : paragraphsTable.builder));
+
+    const { result } = await setup([row('p1', 'First', 'https://cdn.example/1.wav'), row('p2', 'Second', 'https://cdn.example/2.wav')]);
+
+    expect(result.current.speechify.paragraphs[0]?.speechMarks).toEqual({ durationMs: 900, words: [[0, 5, 50, 400]] });
+    expect(result.current.speechify.paragraphs[1]?.speechMarks).toBeNull(); // words beyond the text
   });
 
   it('uses the shared cache first and charges nothing', async () => {

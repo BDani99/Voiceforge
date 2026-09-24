@@ -6,7 +6,7 @@ import EmotionTextarea from './EmotionTextarea';
 import type { Paragraph } from '../../../../types/models';
 
 const paragraph = (patch: Partial<Paragraph> = {}): Paragraph => ({
-  id: 'p1', text: 'Hello brave new world', audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, emotion: '', segments: [], marks: [], ...patch,
+  id: 'p1', text: 'Hello brave new world', audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, emotion: '', segments: [], marks: [], speechMarks: null, ...patch,
 });
 
 describe('ParagraphEmotionSelect', () => {

@@ -20,18 +20,21 @@ export type Database = {
           created_at: string | null
           hash_key: string
           id: string
+          speech_marks: Json | null
         }
         Insert: {
           audio_url: string
           created_at?: string | null
           hash_key: string
           id?: string
+          speech_marks?: Json | null
         }
         Update: {
           audio_url?: string
           created_at?: string | null
           hash_key?: string
           id?: string
+          speech_marks?: Json | null
         }
         Relationships: []
       }

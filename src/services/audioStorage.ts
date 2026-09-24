@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { generateHash } from '../utils/hash';
+import { parseStoredMarks, serializeMarks, type SpeechMarks } from '../utils/speechMarks';
 
 const BUCKET = 'voiceovers';
 const PUBLIC_URL_PREFIX = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/`;
@@ -27,19 +28,26 @@ export async function fetchAudioBlob(url: string | null | undefined): Promise<Bl
 export interface CachedAudio {
   url: string;
   blob: Blob;
+  /** Word timings stored with the audio, if it has any. */
+  marks: SpeechMarks | null;
 }
 
-export async function findCachedAudio(hashKey: string): Promise<CachedAudio | null> {
+/** `textLength` is the length of the text the audio was made from: stored timings that do not fit it are ignored. */
+export async function findCachedAudio(hashKey: string, textLength = Number.MAX_SAFE_INTEGER): Promise<CachedAudio | null> {
   const { data, error } = await supabase
     .from('audio_cache')
-    .select('audio_url')
+    .select('audio_url, speech_marks')
     .eq('hash_key', hashKey)
     .maybeSingle();
 
   if (error || !isTrustedAudioUrl(data?.audio_url)) return null;
 
   try {
-    return { url: data.audio_url, blob: await fetchAudioBlob(data.audio_url) };
+    return {
+      url: data.audio_url,
+      blob: await fetchAudioBlob(data.audio_url),
+      marks: parseStoredMarks(data.speech_marks, textLength),
+    };
   } catch (err) {
     console.error('Failed to load cached audio', err);
     return null;
@@ -47,7 +55,7 @@ export async function findCachedAudio(hashKey: string): Promise<CachedAudio | nu
 }
 
 /** Uploads audio and registers it in the cache table. Returns the public URL, or null on failure. */
-export async function storeAudio(hashKey: string, blob: Blob): Promise<string | null> {
+export async function storeAudio(hashKey: string, blob: Blob, marks: SpeechMarks | null = null): Promise<string | null> {
   try {
     const extension = EXTENSIONS[blob.type] ?? 'wav';
     const path = `${hashKey}.${extension}`;
@@ -63,7 +71,10 @@ export async function storeAudio(hashKey: string, blob: Blob): Promise<string | 
     const { error: cacheError } = await supabase
       .from('audio_cache')
       // Rows are immutable (clients may only insert), an existing entry already points to this file.
-      .upsert({ hash_key: hashKey, audio_url: data.publicUrl }, { onConflict: 'hash_key', ignoreDuplicates: true });
+      .upsert(
+        { hash_key: hashKey, audio_url: data.publicUrl, speech_marks: marks ? serializeMarks(marks) : null },
+        { onConflict: 'hash_key', ignoreDuplicates: true },
+      );
     if (cacheError) console.error('Failed to register audio in cache', cacheError);
 
     return data.publicUrl;

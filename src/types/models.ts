@@ -37,6 +37,8 @@ export interface Paragraph {
   segments: EmotionSegment[];
   /** Emphasis, pronunciations and pauses. They combine with any emotion. */
   marks: TextMark[];
+  /** When each word of the generated audio is spoken (null for audio without timings). */
+  speechMarks: SpeechMarks | null;
 }
 
 /** Pitch, rate and volume: either a named preset or a custom percentage. */
@@ -54,6 +56,7 @@ export interface GlobalDefaults {
 
 import type { EmotionSegment } from '../utils/emotionSegments';
 import type { TextMark } from '../utils/textMarks';
+import type { SpeechMarks } from '../utils/speechMarks';
 
 export interface SsmlOptions {
   prosody?: { pitch?: string; rate?: string; volume?: string };

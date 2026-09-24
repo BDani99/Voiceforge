@@ -68,6 +68,19 @@ describe('findCachedAudio', () => {
     expect(hit?.blob).toBeInstanceOf(Blob);
   });
 
+  it('returns the stored word timings when they fit the text, and drops broken ones', async () => {
+    const stored = { v: 1, durationMs: 900, words: [[0, 5, 50, 400]] };
+    mocks.from.mockReturnValueOnce(queryMock({ data: { audio_url: `${PREFIX}${HASH}.wav`, speech_marks: stored } }).builder);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(audioResponse()));
+    expect((await findCachedAudio(HASH, 11))?.marks).toEqual({ durationMs: 900, words: [[0, 5, 50, 400]] });
+
+    mocks.from.mockReturnValueOnce(queryMock({ data: { audio_url: `${PREFIX}${HASH}.wav`, speech_marks: stored } }).builder);
+    expect((await findCachedAudio(HASH, 3))?.marks).toBeNull(); // the words would end beyond the text
+
+    mocks.from.mockReturnValueOnce(queryMock({ data: { audio_url: `${PREFIX}${HASH}.wav`, speech_marks: { v: 1, words: 'x' } } }).builder);
+    expect((await findCachedAudio(HASH, 11))?.marks).toBeNull();
+  });
+
   it('ignores cache rows that point somewhere else (cache poisoning)', async () => {
     mocks.from.mockReturnValue(queryMock({ data: { audio_url: 'https://evil.example/x.wav' } }).builder);
     const fetchMock = vi.fn();
@@ -104,9 +117,23 @@ describe('storeAudio', () => {
     expect(url).toBe(`${PREFIX}${HASH}.mp3`);
     expect(mocks.upload).toHaveBeenCalledWith(`${HASH}.mp3`, expect.any(Blob), { upsert: true, contentType: 'audio/mpeg' });
     expect(cache.argsOf('upsert')).toEqual([
-      { hash_key: HASH, audio_url: `${PREFIX}${HASH}.mp3` },
+      { hash_key: HASH, audio_url: `${PREFIX}${HASH}.mp3`, speech_marks: null },
       { onConflict: 'hash_key', ignoreDuplicates: true },
     ]);
+  });
+
+  it('stores the word timings next to the audio', async () => {
+    mocks.upload.mockResolvedValue({ error: null });
+    const cache = queryMock({ error: null });
+    mocks.from.mockReturnValue(cache.builder);
+
+    await storeAudio(HASH, new Blob(['x'], { type: 'audio/wav' }), { durationMs: 900, words: [[0, 5, 50, 400]] });
+
+    expect(cache.argsOf('upsert')?.[0]).toEqual({
+      hash_key: HASH,
+      audio_url: `${PREFIX}${HASH}.wav`,
+      speech_marks: { v: 1, durationMs: 900, words: [[0, 5, 50, 400]] },
+    });
   });
 
   it('defaults to wav for unknown types', async () => {

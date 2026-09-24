@@ -6,6 +6,8 @@ import { applyFade } from '../utils/audioProcessing';
 import { notify, getErrorMessage } from '../utils/notificationService';
 import { addSegment, clearRange, rebaseSegments } from '../utils/emotionSegments';
 import { addMark, clearMarksRange, rebaseMarks, type TextMark } from '../utils/textMarks';
+import { parseStoredMarks } from '../utils/speechMarks';
+import type { Json } from '../types/database';
 import { effectiveParagraphEmotion, emotionMode, parseParagraphSettings, serializeParagraphSettings } from '../utils/paragraphEmotion';
 import { resolveModel, voicesForLanguage } from '../utils/voices';
 import type { VoiceSettings } from './useVoiceSettings';
@@ -23,9 +25,10 @@ const newParagraph = (text = ''): Paragraph => ({
   emotion: '',
   segments: [],
   marks: [],
+  speechMarks: null,
 });
 
-const STALE_AUDIO: Partial<Paragraph> = { audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false };
+const STALE_AUDIO: Partial<Paragraph> = { audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, speechMarks: null };
 
 const percent = (value: number): string => `${value >= 0 ? '+' : ''}${value}%`;
 
@@ -117,6 +120,15 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
       }
 
       if (data.length > 0) {
+        // The word timings of the stored audio live next to it in the shared cache table.
+        const urls = data.flatMap((p) => (p.audio_url ? [p.audio_url] : []));
+        const timings = new Map<string, unknown>();
+        if (urls.length > 0) {
+          const { data: cached } = await supabase.from('audio_cache').select('audio_url, speech_marks').in('audio_url', urls);
+          for (const row of cached ?? []) timings.set(row.audio_url, row.speech_marks);
+        }
+        if (cancelled) return;
+
         setParagraphs(data.map((p) => ({
           id: p.id,
           text: p.content,
@@ -124,6 +136,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
           audioBlob: null,
           isGenerated: !!p.audio_url,
           wasCached: !!p.audio_url,
+          speechMarks: p.audio_url ? parseStoredMarks(timings.get(p.audio_url) as Json | undefined, p.content.length) : null,
           ...parseParagraphSettings(p.settings, p.content.length),
         })));
       }
@@ -388,26 +401,29 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     });
 
     if (!forceRegenerate) {
-      const cached = await findCachedAudio(hashKey);
+      const cached = await findCachedAudio(hashKey, paragraph.text.length);
       if (cached) {
         patchParagraph(id, {
           audioUrl: cached.url,
           audioBlob: cached.blob,
           isGenerated: true,
           wasCached: true,
+          speechMarks: cached.marks,
         });
         return cached.blob;
       }
     }
 
     // Credits are checked, charged and refunded on failure by the Edge Function.
-    let audioBlob = await speechifyService.synthesize(
+    const synthesis = await speechifyService.synthesizeDetailed(
       paragraph.text,
       selectedVoice,
       selectedLanguage,
       ssmlOptions,
       { forceRegenerate, action: 'generation', projectId, model },
     );
+    let audioBlob = synthesis.blob;
+    const speechMarks = synthesis.marks;
 
     if (settings.useFadeTransitions) {
       try {
@@ -417,8 +433,8 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
       }
     }
 
-    const audioUrl = await storeAudio(hashKey, audioBlob);
-    patchParagraph(id, { audioBlob, audioUrl, isGenerated: true, wasCached: false });
+    const audioUrl = await storeAudio(hashKey, audioBlob, speechMarks);
+    patchParagraph(id, { audioBlob, audioUrl, isGenerated: true, wasCached: false, speechMarks });
     return audioBlob;
   }, [paragraphs, selectedVoice, selectedLanguage, model, settings, projectId, patchParagraph]);
 

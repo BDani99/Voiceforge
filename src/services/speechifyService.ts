@@ -5,6 +5,8 @@ import { concatenateAudio } from '../utils/audioProcessing';
 import { splitIntoChunkRanges, MAX_CHARS_PER_REQUEST } from '../utils/text';
 import { sliceSegments } from '../utils/emotionSegments';
 import { sliceMarks } from '../utils/textMarks';
+import { audioDurationMs } from '../utils/audioDuration';
+import { joinMarks, wordsFromApi, type SpeechMarks } from '../utils/speechMarks';
 import { autoModel, supportsEmotion } from '../utils/voices';
 import type { SsmlOptions, Voice } from '../types/models';
 
@@ -60,6 +62,14 @@ interface SpeechResponse {
   audioContent?: string;
   audio?: string;
   audio_format?: string;
+  /** Word timings of the audio (see utils/speechMarks.ts). */
+  speech_marks?: unknown;
+}
+
+/** Audio and, when the service delivered them, the word timings of it. */
+export interface SynthesisResult {
+  blob: Blob;
+  marks: SpeechMarks | null;
 }
 
 export interface RequestOptions {
@@ -76,7 +86,7 @@ export interface RequestOptions {
 class SpeechifyService {
   private activeRequests = 0;
   private readonly requestQueue: (() => void)[] = [];
-  private readonly audioCache = new Map<string, Blob>();
+  private readonly audioCache = new Map<string, SynthesisResult>();
 
   async getVoices(): Promise<Voice[]> {
     const { data, error } = (await supabase.functions.invoke<Voice[]>(FUNCTION_NAME, { method: 'GET' })) as InvokeResult<Voice[]>;
@@ -110,8 +120,19 @@ class SpeechifyService {
     ssmlOptions: SsmlOptions,
     requestOptions: RequestOptions = {},
   ): Promise<Blob> {
+    return (await this.synthesizeDetailed(text, voiceId, language, ssmlOptions, requestOptions)).blob;
+  }
+
+  /** Like synthesize, and also returns when each word is spoken (for highlighting and captions). */
+  async synthesizeDetailed(
+    text: string,
+    voiceId: string,
+    language: string,
+    ssmlOptions: SsmlOptions,
+    requestOptions: RequestOptions = {},
+  ): Promise<SynthesisResult> {
     if (this.isWithinLimit(text)) {
-      return this.generateSpeech(text, voiceId, language, ssmlOptions, requestOptions);
+      return this.generateSpeechDetailed(text, voiceId, language, ssmlOptions, requestOptions);
     }
 
     // Highlighted emotions are positions in the full text, so every chunk gets its own share of them.
@@ -126,10 +147,15 @@ class SpeechifyService {
         },
       }))
       .filter((chunk) => chunk.text.trim());
-    const blobs = await Promise.all(
-      chunks.map((chunk) => this.generateSpeech(chunk.text, voiceId, language, chunk.options, requestOptions)),
+    const results = await Promise.all(
+      chunks.map((chunk) => this.generateSpeechDetailed(chunk.text, voiceId, language, chunk.options, requestOptions)),
     );
-    return concatenateAudio(blobs, 0);
+    const blob = await concatenateAudio(results.map((r) => r.blob), 0);
+
+    // Every chunk starts at its own text offset and after the audio of the chunks before it.
+    const timed = results.flatMap((result, i) => (result.marks ? [{ marks: result.marks, textOffset: ranges[i]?.start ?? 0 }] : []));
+    const marks = timed.length === results.length ? joinMarks(timed) : null;
+    return { blob, marks: marks ? { ...marks, durationMs: (await audioDurationMs(blob)) || marks.durationMs } : null };
   }
 
   async generateSpeech(
@@ -139,16 +165,26 @@ class SpeechifyService {
     ssmlOptions: SsmlOptions = {},
     requestOptions: RequestOptions = {},
   ): Promise<Blob> {
+    return (await this.generateSpeechDetailed(text, voiceId, language, ssmlOptions, requestOptions)).blob;
+  }
+
+  async generateSpeechDetailed(
+    text: string,
+    voiceId: string,
+    language: string,
+    ssmlOptions: SsmlOptions = {},
+    requestOptions: RequestOptions = {},
+  ): Promise<SynthesisResult> {
     const { forceRegenerate = false, action = 'generation', projectId } = requestOptions;
     const model = requestOptions.model ?? autoModel(undefined, language);
 
     const cacheKey = this.getCacheKey(text, voiceId, language, model, ssmlOptions);
-    const cachedBlob = this.audioCache.get(cacheKey);
-    if (!forceRegenerate && cachedBlob) {
+    const cached = this.audioCache.get(cacheKey);
+    if (!forceRegenerate && cached) {
       // Re-insert to keep the Map ordered by recency.
       this.audioCache.delete(cacheKey);
-      this.audioCache.set(cacheKey, cachedBlob);
-      return cachedBlob;
+      this.audioCache.set(cacheKey, cached);
+      return cached;
     }
 
     // Emotion and emphasis are only supported by some models.
@@ -207,13 +243,19 @@ class SpeechifyService {
 
     const blob = base64ToBlob(audioData, `audio/${data.audio_format ?? 'mpeg'}`);
 
-    this.audioCache.set(cacheKey, blob);
+    const words = wordsFromApi(data.speech_marks);
+    const result: SynthesisResult = {
+      blob,
+      marks: words.length > 0 ? { words, durationMs: await audioDurationMs(blob) } : null,
+    };
+
+    this.audioCache.set(cacheKey, result);
     if (this.audioCache.size > MAX_CACHE_ENTRIES) {
       const oldest = this.audioCache.keys().next();
       if (!oldest.done) this.audioCache.delete(oldest.value);
     }
 
-    return blob;
+    return result;
   }
 
   private invoke(body: object): Promise<SpeechResponse> {
