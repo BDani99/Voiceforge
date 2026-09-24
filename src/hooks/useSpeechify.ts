@@ -6,7 +6,7 @@ import { applyFade } from '../utils/audioProcessing';
 import { notify, getErrorMessage } from '../utils/notificationService';
 import { addSegment, clearRange, rebaseSegments } from '../utils/emotionSegments';
 import { addMark, clearMarksRange, rebaseMarks, type TextMark } from '../utils/textMarks';
-import { parseStoredMarks } from '../utils/speechMarks';
+import { parseStoredMarks, type SpeechMarks } from '../utils/speechMarks';
 import type { Json } from '../types/database';
 import { effectiveParagraphEmotion, emotionMode, parseParagraphSettings, serializeParagraphSettings } from '../utils/paragraphEmotion';
 import { resolveModel, voicesForLanguage } from '../utils/voices';
@@ -379,6 +379,14 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
 
   // -------------------------------------------------------------- generation
 
+  /** Timings of audio that was generated a moment ago, before the state has caught up. */
+  const marksByIdRef = useRef(new Map<string, SpeechMarks | null>());
+
+  const getSpeechMarks = useCallback(
+    (id: string): SpeechMarks | null => paragraphs.find((p) => p.id === id)?.speechMarks ?? marksByIdRef.current.get(id) ?? null,
+    [paragraphs],
+  );
+
   const runGeneration = useCallback(async (index: number, forceRegenerate: boolean): Promise<Blob> => {
     // Generating before the dictionary is known would ignore the user's pronunciations.
     if (!settings.dictionaryLoaded) {
@@ -410,6 +418,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
           wasCached: true,
           speechMarks: cached.marks,
         });
+        marksByIdRef.current.set(id, cached.marks);
         return cached.blob;
       }
     }
@@ -433,6 +442,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
       }
     }
 
+    marksByIdRef.current.set(id, speechMarks);
     const audioUrl = await storeAudio(hashKey, audioBlob, speechMarks);
     patchParagraph(id, { audioBlob, audioUrl, isGenerated: true, wasCached: false, speechMarks });
     return audioBlob;
@@ -528,6 +538,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     addParagraphAtStart,
     generateParagraphAudio,
     generatePreviewAudio,
+    getSpeechMarks,
     resetSpeechify,
   };
 };

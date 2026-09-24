@@ -13,6 +13,7 @@ import { useSpeechify } from '../../hooks/useSpeechify';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useDictionary } from '../../hooks/useDictionary';
+import { useCaptionExport } from '../../hooks/useCaptionExport';
 import { usePresets } from '../../hooks/usePresets';
 import { supportsEmotion } from '../../utils/voices';
 import type { PresetSettings } from '../../types/models';
@@ -28,6 +29,7 @@ function Workspace() {
   const dictionary = useDictionary(voiceSettings.applyDictionary);
   const speechify = useSpeechify(voiceSettings, projectId);
   const audioPlayer = useAudioPlayer(speechify, voiceSettings, setIsLoading, confirm);
+  const exportCaptions = useCaptionExport(speechify, voiceSettings, setIsLoading, confirm);
   const isBatchRunningRef = useRef(false);
 
   useEffect(() => {
@@ -152,7 +154,7 @@ function Workspace() {
       />
 
       <Header
-        handleExportAll={audioPlayer.handleExportAll}
+        onExport={(kind) => (kind === 'audio' ? audioPlayer.handleExportAll() : exportCaptions(kind))}
         handleResetAll={handleResetAll}
         isLoading={isLoading}
         totalParagraphs={totalParagraphs}

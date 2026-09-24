@@ -18,6 +18,8 @@ interface EmotionTextareaProps {
   onChange: (value: string) => void;
   /** Called with the selected range, or null when nothing is selected. */
   onSelectionChange: (range: TextRange | null) => void;
+  /** The word that is being spoken right now, highlighted while the audio plays. */
+  activeRange?: TextRange | null;
   /** Called with the cursor position while nothing is selected. */
   onCaretChange?: (position: number) => void;
   /** Called when the field loses focus; `next` is the element that gets the focus. */
@@ -37,6 +39,7 @@ export default function EmotionTextarea({
   value,
   segments,
   marks = [],
+  activeRange = null,
   onChange,
   onSelectionChange,
   onCaretChange,
@@ -46,7 +49,10 @@ export default function EmotionTextarea({
   disabled,
   textareaRef,
 }: EmotionTextareaProps) {
-  const { runs, endPause } = useMemo(() => toDisplayRuns(value, segments, marks), [value, segments, marks]);
+  const { runs, endPause } = useMemo(
+    () => toDisplayRuns(value, segments, marks, activeRange),
+    [value, segments, marks, activeRange],
+  );
 
   // Grow the field to its content whenever the text changes.
   useLayoutEffect(() => {
@@ -75,6 +81,7 @@ export default function EmotionTextarea({
             run.emotion ? 'et__mark' : '',
             run.emphasis ? `et__emph et__emph--${run.emphasis}` : '',
             run.alias ? 'et__sub' : '',
+            run.active ? 'et__now' : '',
           ].filter(Boolean).join(' ');
           return (
             <span key={i}>

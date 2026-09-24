@@ -4,7 +4,7 @@ import { pauseLabel, toDisplayRuns } from './displayRuns';
 describe('toDisplayRuns', () => {
   it('is one plain run without any marks', () => {
     expect(toDisplayRuns('Hello', [], [])).toEqual({
-      runs: [{ text: 'Hello', emotion: null, emphasis: null, alias: null, pause: null }],
+      runs: [{ text: 'Hello', emotion: null, emphasis: null, alias: null, pause: null, active: false }],
       endPause: null,
     });
   });
@@ -27,6 +27,18 @@ describe('toDisplayRuns', () => {
     expect(runs.find((r) => r.alias)).toMatchObject({ text: 'three', alias: '3' });
     expect(runs.find((r) => r.pause === '500ms')?.text).toBe(' four');
     expect(endPause).toBe('weak');
+  });
+});
+
+describe('the word being spoken', () => {
+  it('is marked as its own run, on top of emotions and marks', () => {
+    const { runs } = toDisplayRuns('one two three', [{ start: 0, end: 7, emotion: 'sad' }], [], { start: 4, end: 7 });
+    expect(runs.map((r) => [r.text, r.active, r.emotion])).toEqual([['one ', false, 'sad'], ['two', true, 'sad'], [' three', false, null]]);
+  });
+
+  it('is ignored when it does not exist or lies outside the text', () => {
+    expect(toDisplayRuns('abc', [], [], null).runs.some((r) => r.active)).toBe(false);
+    expect(toDisplayRuns('abc', [], [], { start: 10, end: 20 }).runs.some((r) => r.active)).toBe(false);
   });
 });
 

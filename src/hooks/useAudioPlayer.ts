@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { concatenateAudio } from '../utils/audioProcessing';
 import { fetchAudioBlob } from '../services/audioStorage';
+import { downloadBlob } from '../utils/download';
 import { getErrorMessage } from '../utils/notificationService';
 import type { ConfirmFn } from './useConfirm';
 import type { SpeechifyApi } from './useSpeechify';
@@ -338,14 +339,7 @@ export const useAudioPlayer = (
       const finalBlob = await concatenateAudio(audioBlobs, useParagraphGap ? paragraphGapPause : 0);
 
       const extension = finalBlob.type === 'audio/wav' ? 'wav' : 'mp3';
-      const url = URL.createObjectURL(finalBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `voiceforge-${Date.now()}.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadBlob(finalBlob, `voiceforge-${Date.now()}.${extension}`);
     } catch (err) {
       setError(`Export failed: ${getErrorMessage(err)}`);
     } finally {

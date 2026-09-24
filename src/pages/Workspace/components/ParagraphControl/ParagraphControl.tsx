@@ -1,8 +1,9 @@
-import { useRef, useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useRef, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Play, Pause, Loader2, Mic, Check, Trash2 } from 'lucide-react';
 import type { GlobalDefaults, Paragraph } from '../../../../types/models';
 import type { EmotionSegment } from '../../../../utils/emotionSegments';
 import { useBlobDuration } from '../../../../hooks/useBlobDuration';
+import { findWordIndex, wordRange } from '../../../../utils/speechMarks';
 import EmotionTextarea, { type TextRange } from './EmotionTextarea';
 import { HighlightList, MarkList, ParagraphEmotionSelect } from './EmotionControls';
 import { SelectionToolbar } from './SelectionToolbar';
@@ -74,6 +75,7 @@ function ParagraphControl({
 }: ParagraphControlProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [liveDuration, setLiveDuration] = useState(0);
+  const [activeWord, setActiveWord] = useState(-1);
   const [range, setRange] = useState<TextRange | null>(null);
   const [caret, setCaret] = useState<number | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -82,6 +84,7 @@ function ParagraphControl({
   // Length of the audio, known before it is played.
   const knownDuration = useBlobDuration(paragraph.audioBlob);
   const duration = liveDuration || knownDuration;
+  const words = paragraph.speechMarks?.words;
 
   // The position comes from this paragraph's own audio element (never another paragraph's): it is
   // followed frame by frame while playing and read once when paused or stopped.
@@ -90,6 +93,8 @@ function ParagraphControl({
       const audio = getAudio?.(index) ?? null;
       setCurrentTime(audio ? audio.currentTime : 0);
       setLiveDuration(audio && Number.isFinite(audio.duration) ? audio.duration : 0);
+      // The word that is spoken now (only a change re-renders); nothing is highlighted without audio or timings.
+      setActiveWord(audio && words ? findWordIndex(words, audio.currentTime * 1000) : -1);
     };
 
     read();
@@ -102,7 +107,12 @@ function ParagraphControl({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [isPlaying, isActive, getAudio, index]);
+  }, [isPlaying, isActive, getAudio, index, words]);
+
+  const activeRange = useMemo(() => {
+    const word = words?.[activeWord];
+    return word ? wordRange(paragraph.text, word) : null;
+  }, [words, activeWord, paragraph.text]);
 
   const seekTo = (fraction: number) => {
     const position = Math.max(0, Math.min(1, fraction));
@@ -219,6 +229,7 @@ function ParagraphControl({
           value={paragraph.text}
           segments={paragraph.segments}
           marks={paragraph.marks}
+          activeRange={activeRange}
           ariaLabel={`Paragraph ${index + 1} text`}
           placeholder={isFirstParagraph ? 'Paste your text here. Multiple paragraphs will be automatically split...' : 'Enter paragraph text...'}
           onChange={handleTextChange}

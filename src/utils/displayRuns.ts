@@ -11,6 +11,8 @@ export interface DisplayRun {
   alias: string | null;
   /** A pause sits in front of this run (its value, e.g. "500ms"). */
   pause: string | null;
+  /** This is the word being spoken right now. */
+  active: boolean;
 }
 
 export interface DisplayText {
@@ -20,7 +22,12 @@ export interface DisplayText {
 }
 
 /** Splits the text wherever emotion, emphasis, pronunciation or a pause changes. */
-export function toDisplayRuns(text: string, segments: EmotionSegment[], marks: TextMark[]): DisplayText {
+export function toDisplayRuns(
+  text: string,
+  segments: EmotionSegment[],
+  marks: TextMark[],
+  active: { start: number; end: number } | null = null,
+): DisplayText {
   const cleanSegments = normalizeSegments(segments, text.length);
   const cleanMarks = normalizeMarks(marks, text.length);
   const spans = cleanMarks.filter((m) => m.kind !== 'break');
@@ -36,6 +43,10 @@ export function toDisplayRuns(text: string, segments: EmotionSegment[], marks: T
     cuts.add(span.end);
   }
   for (const pause of pauses) cuts.add(pause.start);
+  if (active) {
+    cuts.add(Math.max(0, Math.min(text.length, active.start)));
+    cuts.add(Math.max(0, Math.min(text.length, active.end)));
+  }
   const points = [...cuts].sort((a, b) => a - b);
 
   const runs: DisplayRun[] = [];
@@ -51,6 +62,7 @@ export function toDisplayRuns(text: string, segments: EmotionSegment[], marks: T
       emphasis: span?.kind === 'emphasis' ? span.value : null,
       alias: span?.kind === 'sub' ? span.value : null,
       pause: pauses.find((p) => p.start === start)?.value ?? null,
+      active: !!active && start >= active.start && end <= active.end,
     });
   }
 
