@@ -25,6 +25,7 @@
   "include": [
     "src",
     "vite.config.ts",
+    "config",
     "supabase/functions/generate-speech/logic.ts",
     "supabase/functions/generate-speech/logic.test.ts"
   ]

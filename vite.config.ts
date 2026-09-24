@@ -1,34 +1,25 @@
 /// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { buildContentSecurityPolicy, renderHeadersFile } from './config/securityHeaders'
 
 /**
- * Adds a Content-Security-Policy to the production HTML. Only the app itself and the
- * configured Supabase project may be contacted; nothing is loaded from third parties.
- * (Not applied in dev: the dev server needs inline scripts for hot reloading.)
+ * Production hardening: a CSP <meta> tag in the HTML plus a `_headers` file with the full set
+ * of security headers (Netlify / Cloudflare Pages read it; for other hosts copy the headers into
+ * the server config). Not applied in dev: the dev server needs inline scripts for hot reloading.
  */
-function contentSecurityPolicy(supabaseUrl: string): Plugin {
-  const supabase = new URL(supabaseUrl)
-  const policy = [
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'", // React style props and injected toast/chart styles
-    "img-src 'self' data: blob:",
-    "font-src 'self' data:",
-    `media-src 'self' blob: ${supabase.origin}`,
-    `connect-src 'self' ${supabase.origin} wss://${supabase.host} https://api.pwnedpasswords.com`, // breached-password check (k-anonymity)
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; ')
-
+function securityHeaders(supabaseUrl: string): Plugin {
   return {
-    name: 'content-security-policy',
+    name: 'security-headers',
     apply: 'build',
     transformIndexHtml: (html: string) => html.replace(
       '</head>',
-      `  <meta http-equiv="Content-Security-Policy" content="${policy}" />\n  </head>`,
+      `  <meta http-equiv="Content-Security-Policy" content="${buildContentSecurityPolicy(supabaseUrl, { forHeader: false })}" />
+  </head>`,
     ),
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: '_headers', source: renderHeadersFile(supabaseUrl) })
+    },
   }
 }
 
@@ -37,7 +28,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
 
   return {
-    plugins: [react(), ...(env.VITE_SUPABASE_URL ? [contentSecurityPolicy(env.VITE_SUPABASE_URL)] : [])],
+    plugins: [react(), ...(env.VITE_SUPABASE_URL ? [securityHeaders(env.VITE_SUPABASE_URL)] : [])],
     server: {
       port: 3000,
       open: true,
@@ -46,7 +37,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}', 'supabase/**/*.test.ts'],
+      include: ['src/**/*.test.{ts,tsx}', 'supabase/**/*.test.ts', 'config/**/*.test.ts'],
       css: false,
       // Deterministic environment: tests never depend on a developer's local .env.
       env: {

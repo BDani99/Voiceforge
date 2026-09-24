@@ -11,6 +11,22 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(new Error('Insufficient credits'))).toMatch(/enough credits/);
   });
 
+  it('recognises the rate limit and suspension answers of the Edge Function', () => {
+    expect(getErrorMessage(new Error('Too many requests, please slow down'))).toMatch(/too fast/);
+    expect(getErrorMessage(new Error('Account suspended'))).toBe('Your account has been suspended.');
+  });
+
+  it('recognises duplicate records and expired sessions', () => {
+    expect(getErrorMessage({ code: '23505', message: 'duplicate key' })).toBe('This record already exists.');
+    expect(getErrorMessage(new Error('JWT expired'))).toMatch(/session has expired/);
+  });
+
+  it('describes anything that can be thrown', () => {
+    expect(getErrorMessage('Invalid login credentials')).toMatch(/Incorrect email or password/);
+    expect(getErrorMessage({ error_description: 'invalid_grant' })).toMatch(/Incorrect email or password/);
+    expect(getErrorMessage({ code: 42 }, 'Fallback')).toBe('Fallback');
+  });
+
   it('recognises permission and network errors', () => {
     expect(getErrorMessage({ message: 'new row violates row-level security policy' })).toMatch(/permission/);
     expect(getErrorMessage(new TypeError('Failed to fetch'))).toMatch(/Network error/);
