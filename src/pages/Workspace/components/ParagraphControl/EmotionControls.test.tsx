@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { EmotionToolbar, HighlightList, ParagraphEmotionSelect } from './EmotionControls';
+import { HighlightList, ParagraphEmotionSelect } from './EmotionControls';
 import EmotionTextarea from './EmotionTextarea';
 import type { Paragraph } from '../../../../types/models';
 
 const paragraph = (patch: Partial<Paragraph> = {}): Paragraph => ({
-  id: 'p1', text: 'Hello brave new world', audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, emotion: '', segments: [], ...patch,
+  id: 'p1', text: 'Hello brave new world', audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false, emotion: '', segments: [], marks: [], ...patch,
 });
 
 describe('ParagraphEmotionSelect', () => {
@@ -32,48 +32,6 @@ describe('ParagraphEmotionSelect', () => {
   it('is disabled for models without emotion support', () => {
     render(<ParagraphEmotionSelect paragraph={paragraph()} defaultEmotion="" supported={false} onChange={vi.fn()} />);
     expect(screen.getByRole('combobox', { name: 'Emotion of this paragraph' })).toBeDisabled();
-  });
-});
-
-describe('EmotionToolbar', () => {
-  const props = { supported: true, onApply: vi.fn(), onClearRange: vi.fn(), isPreviewing: false };
-
-  it('renders nothing without a selection', () => {
-    const { container } = render(<EmotionToolbar {...props} paragraph={paragraph()} range={null} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('applies the chosen emotion to the selection', async () => {
-    const onApply = vi.fn();
-    render(<EmotionToolbar {...props} onApply={onApply} paragraph={paragraph()} range={{ start: 6, end: 21 }} />);
-    expect(screen.getByRole('group')).toHaveAccessibleName(/brave new world/);
-
-    await userEvent.click(screen.getByRole('button', { name: /Angry/ }));
-    expect(onApply).toHaveBeenCalledWith('angry');
-  });
-
-  it('offers to remove an emotion only where one exists', () => {
-    const { rerender } = render(<EmotionToolbar {...props} paragraph={paragraph()} range={{ start: 0, end: 5 }} />);
-    expect(screen.queryByRole('button', { name: /No emotion/ })).not.toBeInTheDocument();
-
-    rerender(<EmotionToolbar {...props} paragraph={paragraph({ segments: [{ start: 0, end: 5, emotion: 'sad' }] })} range={{ start: 0, end: 5 }} />);
-    expect(screen.getByRole('button', { name: /No emotion/ })).toBeInTheDocument();
-  });
-
-  it('explains the exclusion instead of offering emotions when the whole paragraph has one', () => {
-    render(<EmotionToolbar {...props} paragraph={paragraph({ emotion: 'sad' })} range={{ start: 0, end: 5 }} />);
-    expect(screen.getByText(/emotion for the whole text/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Angry/ })).not.toBeInTheDocument();
-  });
-
-  it('explains when the model has no emotions', () => {
-    render(<EmotionToolbar {...props} supported={false} paragraph={paragraph()} range={{ start: 0, end: 5 }} />);
-    expect(screen.getByText(/does not support emotions/)).toBeInTheDocument();
-  });
-
-  it('a neutral paragraph allows highlighting', () => {
-    render(<EmotionToolbar {...props} paragraph={paragraph({ emotion: 'none' })} range={{ start: 0, end: 5 }} />);
-    expect(screen.getByRole('button', { name: /Angry/ })).toBeInTheDocument();
   });
 });
 
@@ -123,5 +81,47 @@ describe('EmotionTextarea', () => {
     const marks = container.querySelectorAll('.et__mark');
     expect(marks).toHaveLength(1);
     expect(marks[0]).toHaveTextContent('world');
+  });
+});
+
+describe('EmotionTextarea marks and cursor', () => {
+  it('shows emphasis, pronunciation and pause without changing the text', () => {
+    const { container } = render(
+      <EmotionTextarea
+        value="say 3/4 loudly now"
+        segments={[]}
+        marks={[
+          { kind: 'sub', start: 4, end: 7, value: 'three quarters' },
+          { kind: 'emphasis', start: 8, end: 14, value: 'strong' },
+          { kind: 'break', start: 14, end: 14, value: '500ms' },
+        ]}
+        onChange={vi.fn()}
+        onSelectionChange={vi.fn()}
+        ariaLabel="Text"
+      />,
+    );
+    expect(container.querySelector('.et__sub')).toHaveTextContent('3/4');
+    expect(container.querySelector('.et__emph--strong')).toHaveTextContent('loudly');
+    expect(screen.getAllByTestId('et-pause')).toHaveLength(1);
+    const zeroWidth = new RegExp(String.fromCharCode(0x200b), 'g');
+    expect(container.querySelector('.et__backdrop')?.textContent?.replace(zeroWidth, '')).toBe('say 3/4 loudly now');
+  });
+
+  it('reports the cursor position when nothing is selected and the target of a blur', async () => {
+    const onCaretChange = vi.fn();
+    const onBlur = vi.fn();
+    render(
+      <>
+        <EmotionTextarea value="Hello world" segments={[]} onChange={vi.fn()} onSelectionChange={vi.fn()} onCaretChange={onCaretChange} onBlur={onBlur} ariaLabel="Text" />
+        <button>elsewhere</button>
+      </>,
+    );
+    const field = screen.getByRole('textbox', { name: 'Text' });
+    await userEvent.click(field);
+    await userEvent.keyboard('{Home}');
+    expect(onCaretChange).toHaveBeenLastCalledWith(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'elsewhere' }));
+    expect(onBlur).toHaveBeenCalledWith(screen.getByRole('button', { name: 'elsewhere' }));
   });
 });

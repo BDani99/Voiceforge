@@ -5,7 +5,7 @@ import PlaybackControls from './PlaybackControls';
 import type { Paragraph } from '../../../../types/models';
 
 const paragraph = (id: string, text: string, isGenerated = false): Paragraph => ({
-  id, text, audioBlob: null, audioUrl: null, isGenerated, wasCached: false, emotion: '', segments: [],
+  id, text, audioBlob: null, audioUrl: null, isGenerated, wasCached: false, emotion: '', segments: [], marks: [],
 });
 
 const props = (patch: Partial<React.ComponentProps<typeof PlaybackControls>> = {}): React.ComponentProps<typeof PlaybackControls> => ({

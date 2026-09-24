@@ -4,6 +4,7 @@ import { buildSSML } from '../utils/ssml';
 import { concatenateAudio } from '../utils/audioProcessing';
 import { splitIntoChunkRanges, MAX_CHARS_PER_REQUEST } from '../utils/text';
 import { sliceSegments } from '../utils/emotionSegments';
+import { sliceMarks } from '../utils/textMarks';
 import { autoModel, supportsEmotion } from '../utils/voices';
 import type { SsmlOptions, Voice } from '../types/models';
 
@@ -114,10 +115,15 @@ class SpeechifyService {
     }
 
     // Highlighted emotions are positions in the full text, so every chunk gets its own share of them.
-    const chunks = splitIntoChunkRanges(text)
-      .map((range) => ({
+    const ranges = splitIntoChunkRanges(text);
+    const chunks = ranges
+      .map((range, index) => ({
         text: text.slice(range.start, range.end),
-        options: { ...ssmlOptions, emotionSegments: sliceSegments(ssmlOptions.emotionSegments ?? [], range.start, range.end) },
+        options: {
+          ...ssmlOptions,
+          emotionSegments: sliceSegments(ssmlOptions.emotionSegments ?? [], range.start, range.end),
+          marks: sliceMarks(ssmlOptions.marks ?? [], range.start, range.end, index === ranges.length - 1),
+        },
       }))
       .filter((chunk) => chunk.text.trim());
     const blobs = await Promise.all(
@@ -148,7 +154,13 @@ class SpeechifyService {
     // Emotion and emphasis are only supported by some models.
     const effectiveOptions: SsmlOptions = supportsEmotion(model)
       ? ssmlOptions
-      : { ...ssmlOptions, emotion: { enabled: false }, emotionSegments: [], emphasis: { enabled: false } };
+      : {
+        ...ssmlOptions,
+        emotion: { enabled: false },
+        emotionSegments: [],
+        emphasis: { enabled: false },
+        marks: (ssmlOptions.marks ?? []).filter((m) => m.kind !== 'emphasis'),
+      };
 
     const buildBody = (options: SsmlOptions) => ({
       input: buildSSML(text, options),
@@ -168,6 +180,7 @@ class SpeechifyService {
         effectiveOptions.emotion?.enabled,
         (effectiveOptions.emotionSegments?.length ?? 0) > 0,
         effectiveOptions.emphasis?.enabled,
+        (effectiveOptions.marks ?? []).some((m) => m.kind === 'emphasis'),
       ].some(Boolean);
 
       if (status === 400 && usesStyleTags) {
@@ -180,6 +193,7 @@ class SpeechifyService {
           emotion: { enabled: false },
           emotionSegments: [],
           emphasis: { enabled: false },
+          marks: (effectiveOptions.marks ?? []).filter((m) => m.kind !== 'emphasis'),
         }));
       } else if (status >= 500 && model === 'simba-multilingual') {
         throw new Error(`The simba-multilingual model (legacy) is currently unavailable. Try another model or try again later. (Error: ${status})`);

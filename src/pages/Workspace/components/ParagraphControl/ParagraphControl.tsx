@@ -4,7 +4,9 @@ import type { GlobalDefaults, Paragraph } from '../../../../types/models';
 import type { EmotionSegment } from '../../../../utils/emotionSegments';
 import { useBlobDuration } from '../../../../hooks/useBlobDuration';
 import EmotionTextarea, { type TextRange } from './EmotionTextarea';
-import { EmotionToolbar, HighlightList, ParagraphEmotionSelect } from './EmotionControls';
+import { HighlightList, MarkList, ParagraphEmotionSelect } from './EmotionControls';
+import { SelectionToolbar } from './SelectionToolbar';
+import type { TextMark } from '../../../../utils/textMarks';
 import './ParagraphControl.css';
 
 interface ParagraphControlProps {
@@ -28,6 +30,9 @@ interface ParagraphControlProps {
   onApplyEmotionToRange: (index: number, start: number, end: number, emotion: string) => void;
   onClearEmotionRange: (index: number, start: number, end: number) => void;
   onClearHighlights: (index: number) => void;
+  onApplyMark: (index: number, mark: TextMark) => void;
+  onClearMarks: (index: number, start: number, end: number) => void;
+  onClearAllMarks: (index: number) => void;
   isFirstParagraph?: boolean;
   /** This paragraph is the one that plays or is paused. */
   isActive?: boolean;
@@ -59,6 +64,9 @@ function ParagraphControl({
   onApplyEmotionToRange,
   onClearEmotionRange,
   onClearHighlights,
+  onApplyMark,
+  onClearMarks,
+  onClearAllMarks,
   isFirstParagraph = false,
   isActive = false,
   getAudio,
@@ -67,6 +75,7 @@ function ParagraphControl({
   const [currentTime, setCurrentTime] = useState(0);
   const [liveDuration, setLiveDuration] = useState(0);
   const [range, setRange] = useState<TextRange | null>(null);
+  const [caret, setCaret] = useState<number | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -128,6 +137,7 @@ function ParagraphControl({
       onUpdate(index, newText);
     }
     setRange(null); // positions changed
+    setCaret(null);
   };
 
   const applyEmotion = (emotion: string) => {
@@ -208,26 +218,41 @@ function ParagraphControl({
           textareaRef={textareaRef}
           value={paragraph.text}
           segments={paragraph.segments}
+          marks={paragraph.marks}
           ariaLabel={`Paragraph ${index + 1} text`}
           placeholder={isFirstParagraph ? 'Paste your text here. Multiple paragraphs will be automatically split...' : 'Enter paragraph text...'}
           onChange={handleTextChange}
           onSelectionChange={setRange}
+          onCaretChange={setCaret}
+          onBlur={(next) => {
+            // The cursor toolbar goes away with the focus, unless the focus moves into the toolbar itself.
+            if (!(next instanceof Element && next.closest('.ec-toolbar'))) setCaret(null);
+          }}
         />
 
-        <EmotionToolbar
+        <SelectionToolbar
           paragraph={paragraph}
           supported={emotionSupported}
           range={range}
-          onApply={applyEmotion}
-          onClearRange={() => {
+          caret={caret}
+          onApplyEmotion={applyEmotion}
+          onClearEmotion={() => {
             if (range) onClearEmotionRange(index, range.start, range.end);
             setRange(null);
           }}
+          onApplyMark={(mark) => onApplyMark(index, mark)}
+          onClearMarks={(start, end) => onClearMarks(index, start, end)}
           onPreview={onPreview ? () => void handlePreview() : undefined}
           isPreviewing={isPreviewing}
         />
 
         <HighlightList paragraph={paragraph} onRemove={removeSegment} onClearAll={() => onClearHighlights(index)} />
+
+        <MarkList
+          paragraph={paragraph}
+          onRemove={(mark) => onClearMarks(index, mark.start, mark.end)}
+          onClearAll={() => onClearAllMarks(index)}
+        />
 
         {/* Local Progress Bar */}
         {(isGenerated || isGenerating) && (

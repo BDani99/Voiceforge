@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { effectiveParagraphEmotion, emotionMode, EMOTION_NEUTRAL, parseParagraphSettings, serializeParagraphSettings } from './paragraphEmotion';
 
-const p = (emotion: string, segments: { start: number; end: number; emotion: string }[] = []) => ({ emotion, segments });
+const p = (emotion: string, segments: { start: number; end: number; emotion: string }[] = []) => ({ emotion, segments, marks: [] });
 
 describe('emotionMode', () => {
   it('distinguishes the four ways a paragraph gets its emotion', () => {

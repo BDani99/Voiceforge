@@ -66,12 +66,10 @@ export function clearRange(segments: EmotionSegment[], start: number, end: numbe
 }
 
 /**
- * Moves the segments along with an edit of the text so they keep pointing at the same words.
- * The edit is found as the differing middle between the old and the new text.
+ * The edit between two versions of a text, found as the differing middle: everything before
+ * `prefix` is unchanged, the old text from `oldEnd` on is unchanged (shifted by `delta`).
  */
-export function rebaseSegments(segments: EmotionSegment[], oldText: string, newText: string): EmotionSegment[] {
-  if (segments.length === 0 || oldText === newText) return segments;
-
+export function diffEdit(oldText: string, newText: string): { prefix: number; oldEnd: number; delta: number } {
   let prefix = 0;
   const maxPrefix = Math.min(oldText.length, newText.length);
   while (prefix < maxPrefix && oldText[prefix] === newText[prefix]) prefix++;
@@ -80,8 +78,17 @@ export function rebaseSegments(segments: EmotionSegment[], oldText: string, newT
   const maxSuffix = maxPrefix - prefix;
   while (suffix < maxSuffix && oldText[oldText.length - 1 - suffix] === newText[newText.length - 1 - suffix]) suffix++;
 
-  const oldEnd = oldText.length - suffix; // end of the replaced part in the old text
-  const delta = newText.length - oldText.length;
+  return { prefix, oldEnd: oldText.length - suffix, delta: newText.length - oldText.length };
+}
+
+/**
+ * Moves the segments along with an edit of the text so they keep pointing at the same words.
+ * The edit is found as the differing middle between the old and the new text.
+ */
+export function rebaseSegments(segments: EmotionSegment[], oldText: string, newText: string): EmotionSegment[] {
+  if (segments.length === 0 || oldText === newText) return segments;
+
+  const { prefix, oldEnd, delta } = diffEdit(oldText, newText);
 
   const moved: EmotionSegment[] = [];
   for (const segment of segments) {

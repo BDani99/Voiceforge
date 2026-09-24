@@ -1,11 +1,12 @@
-import { Eraser, Loader2, Sparkles, Volume2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
 import { EMOTION_OPTIONS } from '../../../../constants/voiceConstants';
 import { emotionHue, emotionIcon, emotionLabel } from '../../../../utils/emotionColors';
+import { pauseLabel } from '../../../../utils/displayRuns';
+import { MAX_TOTAL_BREAK_MS, markLabel, totalBreakMs, type TextMark } from '../../../../utils/textMarks';
 import { EMOTION_NEUTRAL, emotionMode } from '../../../../utils/paragraphEmotion';
 import type { EmotionSegment } from '../../../../utils/emotionSegments';
 import type { Paragraph } from '../../../../types/models';
-import type { TextRange } from './EmotionTextarea';
 import './EmotionControls.css';
 
 const HIGHLIGHTS_VALUE = '__highlights__';
@@ -51,74 +52,6 @@ export function ParagraphEmotionSelect({ paragraph, defaultEmotion, supported, o
   );
 }
 
-interface EmotionToolbarProps {
-  paragraph: Paragraph;
-  supported: boolean;
-  /** Current selection in the text, if any. */
-  range: TextRange | null;
-  onApply: (emotion: string) => void;
-  onClearRange: () => void;
-  onPreview?: (() => void) | undefined;
-  isPreviewing: boolean;
-}
-
-/** Appears while text is selected: give the selection an emotion, clear it, or hear it. */
-export function EmotionToolbar({ paragraph, supported, range, onApply, onClearRange, onPreview, isPreviewing }: EmotionToolbarProps) {
-  if (!range) return null;
-
-  const selected = paragraph.text.slice(range.start, range.end);
-  const blocked = emotionMode(paragraph) === 'paragraph';
-  const previewable = onPreview && selected.trim().length > 0 && selected.trim().length < 150;
-  const hasHighlightInside = paragraph.segments.some((s) => s.end > range.start && s.start < range.end);
-
-  return (
-    <div className="ec-toolbar" role="group" aria-label={`Emotion for the selected text “${snippet(selected)}”`}>
-      <div className="ec-toolbar__head">
-        <span className="ec-toolbar__selected"><Sparkles size={14} aria-hidden="true" /> “{snippet(selected)}”</span>
-        {previewable && (
-          <button
-            type="button"
-            className="ec-btn"
-            disabled={isPreviewing}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onPreview}
-          >
-            {isPreviewing ? <Loader2 size={13} className="spinning" /> : <Volume2 size={13} />} Preview
-          </button>
-        )}
-      </div>
-
-      {!supported ? (
-        <p className="ec-toolbar__hint">The selected model does not support emotions. Choose Simba 3.2 or 3.0 in the model list.</p>
-      ) : blocked ? (
-        <p className="ec-toolbar__hint">
-          This paragraph has an emotion for the whole text. Set it to “Default” or “Neutral” to highlight single parts instead.
-        </p>
-      ) : (
-        <div className="ec-chips">
-          {EMOTION_OPTIONS.map((e) => (
-            <button
-              key={e.value}
-              type="button"
-              className="ec-chip"
-              style={{ '--emo-hue': emotionHue(e.value) } as React.CSSProperties}
-              onMouseDown={(event) => event.preventDefault()} // keep the text selected
-              onClick={() => onApply(e.value)}
-            >
-              <span aria-hidden="true">{e.icon}</span> {e.label}
-            </button>
-          ))}
-          {hasHighlightInside && (
-            <button type="button" className="ec-chip ec-chip--clear" onMouseDown={(event) => event.preventDefault()} onClick={onClearRange}>
-              <Eraser size={12} aria-hidden="true" /> No emotion
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface HighlightListProps {
   paragraph: Paragraph;
   onRemove: (segment: EmotionSegment) => void;
@@ -146,6 +79,52 @@ export function HighlightList({ paragraph, onRemove, onClearAll }: HighlightList
       {paragraph.segments.length > 1 && (
         <button type="button" className="ec-link" onClick={onClearAll}>Clear all</button>
       )}
+    </div>
+  );
+}
+
+interface MarkListProps {
+  paragraph: Paragraph;
+  onRemove: (mark: TextMark) => void;
+  onClearAll: () => void;
+}
+
+const markText = (paragraph: Paragraph, mark: TextMark): string => {
+  if (mark.kind === 'break') {
+    const before = paragraph.text.slice(Math.max(0, mark.start - 14), mark.start).trim();
+    return before ? `after “…${before.split(/\s+/).slice(-2).join(' ')}”` : 'at the start';
+  }
+  return `“${snippet(paragraph.text.slice(mark.start, mark.end))}”`;
+};
+
+const markDescription = (paragraph: Paragraph, mark: TextMark): string =>
+  mark.kind === 'sub'
+    ? `${markText(paragraph, mark)} → “${snippet(mark.value)}”`
+    : markText(paragraph, mark);
+
+/** Emphasis, pronunciations and pauses of a paragraph as removable chips. */
+export function MarkList({ paragraph, onRemove, onClearAll }: MarkListProps) {
+  if (paragraph.marks.length === 0) return null;
+  const tooLong = totalBreakMs(paragraph.marks) > MAX_TOTAL_BREAK_MS;
+
+  return (
+    <div className="ec-highlights">
+      <span className="ec-highlights__title">Emphasis, pronunciation and pauses</span>
+      <ul className="ec-highlights__list">
+        {paragraph.marks.map((mark) => (
+          <li key={`${mark.kind}-${mark.start}-${mark.end}`} className={`ec-tag ec-tag--${mark.kind}`}>
+            <span>{mark.kind === 'break' ? `Pause ${pauseLabel(mark.value)}` : markLabel(mark).replace('Pronounced as', 'Say')}</span>
+            <span className="ec-tag__text">{markDescription(paragraph, mark)}</span>
+            <button type="button" aria-label={`Remove ${markLabel(mark).toLowerCase()} ${markText(paragraph, mark)}`} onClick={() => onRemove(mark)}>
+              <X size={12} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {paragraph.marks.length > 1 && (
+        <button type="button" className="ec-link" onClick={onClearAll}>Clear all</button>
+      )}
+      {tooLong && <p className="ec-toolbar__hint" role="status">Speechify ignores pauses beyond 30 seconds in total.</p>}
     </div>
   );
 }

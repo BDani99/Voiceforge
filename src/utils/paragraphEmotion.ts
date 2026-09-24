@@ -2,6 +2,7 @@ import type { Json } from '../types/database';
 import type { Paragraph } from '../types/models';
 import { EMOTION_OPTIONS } from '../constants/voiceConstants';
 import { normalizeSegments, type EmotionSegment } from './emotionSegments';
+import { normalizeMarks, type MarkKind, type TextMark } from './textMarks';
 
 /** Paragraph emotion value for "explicitly neutral", overriding the default emotion of all paragraphs. */
 export const EMOTION_NEUTRAL = 'none';
@@ -11,6 +12,9 @@ const KNOWN_EMOTIONS = new Set(EMOTION_OPTIONS.map((e) => e.value));
 export type EmotionMode = 'default' | 'neutral' | 'paragraph' | 'highlights';
 
 type EmotionFields = Pick<Paragraph, 'emotion' | 'segments'>;
+type StoredFields = EmotionFields & Partial<Pick<Paragraph, 'marks'>>;
+
+const MARK_KINDS: readonly string[] = ['emphasis', 'sub', 'break'] satisfies MarkKind[];
 
 /**
  * How a paragraph gets its emotion. Whole-paragraph emotion and highlighted parts exclude each
@@ -39,12 +43,14 @@ export function effectiveParagraphEmotion(paragraph: EmotionFields, defaultEmoti
 export interface StoredParagraphSettings {
   emotion: string;
   segments: EmotionSegment[];
+  marks: TextMark[];
 }
 
-export function serializeParagraphSettings(paragraph: EmotionFields): Json {
+export function serializeParagraphSettings(paragraph: StoredFields): Json {
   return {
     emotion: paragraph.emotion,
     segments: paragraph.segments.map((s) => ({ start: s.start, end: s.end, emotion: s.emotion })),
+    marks: (paragraph.marks ?? []).map((m) => ({ kind: m.kind, start: m.start, end: m.end, value: m.value })),
   };
 }
 
@@ -53,7 +59,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /** Reads stored settings defensively: anything unknown or malformed is dropped. */
 export function parseParagraphSettings(value: Json | null | undefined, textLength: number): StoredParagraphSettings {
-  if (!isRecord(value)) return { emotion: '', segments: [] };
+  if (!isRecord(value)) return { emotion: '', segments: [], marks: [] };
 
   const emotion = typeof value.emotion === 'string' && (value.emotion === EMOTION_NEUTRAL || KNOWN_EMOTIONS.has(value.emotion))
     ? value.emotion
@@ -70,6 +76,17 @@ export function parseParagraphSettings(value: Json | null | undefined, textLengt
     textLength,
   );
 
+  const rawMarks: unknown[] = Array.isArray(value.marks) ? value.marks : [];
+  const marks = normalizeMarks(
+    rawMarks.flatMap((raw): TextMark[] => {
+      if (!isRecord(raw)) return [];
+      const { kind, start, end, value: markValue } = raw;
+      if (typeof kind !== 'string' || !MARK_KINDS.includes(kind) || typeof start !== 'number' || typeof end !== 'number' || typeof markValue !== 'string') return [];
+      return [{ kind: kind as MarkKind, start, end, value: markValue }];
+    }),
+    textLength,
+  );
+
   // Never both: highlights win, as they carry more information.
-  return segments.length > 0 ? { emotion: '', segments } : { emotion, segments: [] };
+  return segments.length > 0 ? { emotion: '', segments, marks } : { emotion, segments: [], marks };
 }

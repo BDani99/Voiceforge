@@ -1,5 +1,7 @@
 import { useLayoutEffect, useMemo, type Ref } from 'react';
-import { toRuns, type EmotionSegment } from '../../../../utils/emotionSegments';
+import type { EmotionSegment } from '../../../../utils/emotionSegments';
+import type { TextMark } from '../../../../utils/textMarks';
+import { toDisplayRuns } from '../../../../utils/displayRuns';
 import { emotionHue } from '../../../../utils/emotionColors';
 import './EmotionControls.css';
 
@@ -11,9 +13,15 @@ export interface TextRange {
 interface EmotionTextareaProps {
   value: string;
   segments: EmotionSegment[];
+  /** Emphasis, pronunciations and pauses shown in the text. */
+  marks?: TextMark[];
   onChange: (value: string) => void;
   /** Called with the selected range, or null when nothing is selected. */
   onSelectionChange: (range: TextRange | null) => void;
+  /** Called with the cursor position while nothing is selected. */
+  onCaretChange?: (position: number) => void;
+  /** Called when the field loses focus; `next` is the element that gets the focus. */
+  onBlur?: (next: EventTarget | null) => void;
   placeholder?: string;
   ariaLabel: string;
   disabled?: boolean;
@@ -28,14 +36,17 @@ interface EmotionTextareaProps {
 export default function EmotionTextarea({
   value,
   segments,
+  marks = [],
   onChange,
   onSelectionChange,
+  onCaretChange,
+  onBlur,
   placeholder,
   ariaLabel,
   disabled,
   textareaRef,
 }: EmotionTextareaProps) {
-  const runs = useMemo(() => toRuns(value, segments), [value, segments]);
+  const { runs, endPause } = useMemo(() => toDisplayRuns(value, segments, marks), [value, segments, marks]);
 
   // Grow the field to its content whenever the text changes.
   useLayoutEffect(() => {
@@ -48,17 +59,36 @@ export default function EmotionTextarea({
 
   const reportSelection = (field: HTMLTextAreaElement) => {
     const { selectionStart: start, selectionEnd: end } = field;
-    onSelectionChange(end > start ? { start, end } : null);
+    if (end > start) {
+      onSelectionChange({ start, end });
+    } else {
+      onSelectionChange(null);
+      onCaretChange?.(start);
+    }
   };
 
   return (
     <div className="et">
       <div className="et__backdrop" aria-hidden="true">
-        {runs.map((run, i) => (
-          run.emotion
-            ? <mark key={i} className="et__mark" style={{ '--emo-hue': emotionHue(run.emotion) } as React.CSSProperties}>{run.text}</mark>
-            : <span key={i}>{run.text}</span>
-        ))}
+        {runs.map((run, i) => {
+          const classes = [
+            run.emotion ? 'et__mark' : '',
+            run.emphasis ? `et__emph et__emph--${run.emphasis}` : '',
+            run.alias ? 'et__sub' : '',
+          ].filter(Boolean).join(' ');
+          return (
+            <span key={i}>
+              {run.pause && <span className="et__pause" data-testid="et-pause" />}
+              <span
+                className={classes || undefined}
+                style={run.emotion ? { '--emo-hue': emotionHue(run.emotion) } as React.CSSProperties : undefined}
+              >
+                {run.text}
+              </span>
+            </span>
+          );
+        })}
+        {endPause && <span className="et__pause" data-testid="et-pause" />}
         {'​'}
       </div>
       <textarea
@@ -72,6 +102,7 @@ export default function EmotionTextarea({
         spellCheck
         onChange={(e) => onChange(e.target.value)}
         onSelect={(e) => reportSelection(e.currentTarget)}
+        onBlur={(e) => onBlur?.(e.relatedTarget)}
       />
     </div>
   );

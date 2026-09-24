@@ -1,5 +1,6 @@
 import type { SsmlOptions } from '../types/models';
-import { toRuns } from './emotionSegments';
+import { toRuns, type EmotionSegment } from './emotionSegments';
+import { isValidMark, normalizeMarks, type TextMark } from './textMarks';
 
 const VALID_PITCH = ['x-low', 'low', 'medium', 'high', 'x-high'];
 const VALID_RATE = ['x-slow', 'slow', 'medium', 'fast', 'x-fast'];
@@ -30,7 +31,7 @@ function escapeRegExp(string: string): string {
 /** Returns a list of human readable problems, empty if the options are valid. */
 export function validateSSMLOptions(options: SsmlOptions = {}): string[] {
   const errors: string[] = [];
-  const { prosody, emphasis, emotion, breaks, emotionSegments } = options;
+  const { prosody, emphasis, emotion, breaks, emotionSegments, marks } = options;
 
   if (prosody) {
     const { pitch, rate, volume } = prosody;
@@ -49,6 +50,10 @@ export function validateSSMLOptions(options: SsmlOptions = {}): string[] {
 
   for (const segment of emotionSegments ?? []) {
     if (!VALID_EMOTIONS.includes(segment.emotion)) errors.push(`Invalid emotion type: ${segment.emotion}`);
+  }
+
+  for (const mark of marks ?? []) {
+    if (!isValidMark(mark)) errors.push(`Invalid ${mark.kind} value: ${mark.value}`);
   }
 
   if (breaks) {
@@ -98,6 +103,24 @@ function sentenceBreakTag(breaks: SsmlOptions['breaks']): string | null {
   return strength === 'none' ? null : `<break strength="${strength}"/>`;
 }
 
+const breakTagFor = (value: string): string =>
+  value.endsWith('ms') ? `<break time="${value}"/>` : `<break strength="${value}"/>`;
+
+/** An emotion boundary must not cut a pronunciation in two: it moves to the nearer edge of it. */
+function snapSegments(segments: EmotionSegment[], subs: TextMark[]): EmotionSegment[] {
+  if (subs.length === 0) return segments;
+  const snap = (position: number): number => {
+    const sub = subs.find((s) => position > s.start && position < s.end);
+    return sub ? (position - sub.start < sub.end - position ? sub.start : sub.end) : position;
+  };
+  return segments.map((s) => ({ ...s, start: snap(s.start), end: snap(s.end) })).filter((s) => s.end > s.start);
+}
+
+interface Item {
+  xml: string;
+  emphasis: string;
+}
+
 /**
  * Builds the SSML document for one text block. All user text is XML-escaped, so
  * it can never inject tags; only the tags generated here end up in the output.
@@ -131,16 +154,74 @@ export function buildSSML(text: string, options: SsmlOptions = {}): string {
     })
     .join('');
 
+  const marks = normalizeMarks(options.marks ?? [], text.length);
+
+  /** One stretch of text of a single emotion run: pronunciations, emphasis and pauses inside it. */
+  const renderRange = (from: number, to: number, isLastRun: boolean): string => {
+    const spans = marks.filter((m) => m.kind !== 'break' && m.end > from && m.start < to);
+    const pauses = marks.filter((m) => m.kind === 'break' && m.start >= from && (m.start < to || (isLastRun && m.start === to)));
+    if (spans.length === 0 && pauses.length === 0) return renderPiece(text.slice(from, to));
+
+    const cuts = new Set<number>([from, to]);
+    for (const span of spans) {
+      cuts.add(Math.max(from, span.start));
+      cuts.add(Math.min(to, span.end));
+    }
+    for (const pause of pauses) cuts.add(pause.start);
+    const points = [...cuts].sort((a, b) => a - b);
+
+    const items: Item[] = [];
+    const pauseAt = (position: number): string =>
+      pauses.filter((p) => p.start === position).map((p) => breakTagFor(p.value)).join('');
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i] ?? from;
+      const b = points[i + 1] ?? to;
+      if (b <= a) continue;
+      const span = spans.find((m) => m.start <= a && m.end >= b);
+      const level = span?.kind === 'emphasis' ? span.value : '';
+      const body = span?.kind === 'sub'
+        ? `<sub alias="${escapeXml(span.value)}">${escapeXml(text.slice(a, b))}</sub>`
+        : renderPiece(text.slice(a, b));
+      items.push({ xml: pauseAt(a) + body, emphasis: level });
+    }
+    if (isLastRun) {
+      const trailing = pauseAt(to);
+      if (trailing) items.push({ xml: trailing, emphasis: items[items.length - 1]?.emphasis ?? '' });
+    }
+
+    // Neighbours with the same emphasis share one tag.
+    let xml = '';
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item) continue;
+      let group = item.xml;
+      while (item.emphasis && items[i + 1]?.emphasis === item.emphasis) {
+        group += items[i + 1]?.xml ?? '';
+        i++;
+      }
+      xml += item.emphasis ? `<emphasis level="${item.emphasis}">${group}</emphasis>` : group;
+    }
+    return xml;
+  };
+
   // Highlighted parts get their own style tag; the rest of the text stays neutral.
-  const hasSegments = emotionSegments.length > 0;
-  let content = hasSegments
-    ? toRuns(text, emotionSegments)
-      .map((run) => {
-        const rendered = renderPiece(run.text);
+  const segments = snapSegments(emotionSegments, marks.filter((m) => m.kind === 'sub'));
+  const hasSegments = segments.length > 0;
+  let content: string;
+  if (hasSegments) {
+    let position = 0;
+    content = toRuns(text, segments)
+      .map((run, index, runs) => {
+        const from = position;
+        position += run.text.length;
+        const rendered = renderRange(from, position, index === runs.length - 1);
         return run.emotion ? `<speechify:style emotion="${run.emotion}">${rendered}</speechify:style>` : rendered;
       })
-      .join('')
-    : renderPiece(text);
+      .join('');
+  } else {
+    content = renderRange(0, text.length, true);
+  }
 
   if (addSilencePadding) {
     const pad = `<break time="${silenceDuration}ms"/>`;

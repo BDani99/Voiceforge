@@ -5,6 +5,7 @@ import { findCachedAudio, storeAudio, fetchAudioBlob, getAudioHash } from '../se
 import { applyFade } from '../utils/audioProcessing';
 import { notify, getErrorMessage } from '../utils/notificationService';
 import { addSegment, clearRange, rebaseSegments } from '../utils/emotionSegments';
+import { addMark, clearMarksRange, rebaseMarks, type TextMark } from '../utils/textMarks';
 import { effectiveParagraphEmotion, emotionMode, parseParagraphSettings, serializeParagraphSettings } from '../utils/paragraphEmotion';
 import { resolveModel, voicesForLanguage } from '../utils/voices';
 import type { VoiceSettings } from './useVoiceSettings';
@@ -21,6 +22,7 @@ const newParagraph = (text = ''): Paragraph => ({
   wasCached: false,
   emotion: '',
   segments: [],
+  marks: [],
 });
 
 const STALE_AUDIO: Partial<Paragraph> = { audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false };
@@ -54,6 +56,7 @@ function buildSsmlOptions(settings: VoiceSettings, { preview = false, paragraph 
       : { enabled: false },
     emotion: emotion ? { enabled: true, type: emotion } : { enabled: false },
     emotionSegments: paragraph && !preview ? paragraph.segments : [],
+    marks: paragraph && !preview ? paragraph.marks : [],
     customReplacements: settings.parseCustomReplacements(settings.globalCustomReplacements),
     addSilencePadding: preview ? false : settings.useFadeTransitions,
     silenceDuration: 50,
@@ -300,7 +303,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
   const updateParagraphText = useCallback((index: number, text: string) => {
     // Editing the text makes any stored audio stale; highlighted emotions move along with the words.
     setParagraphs((prev) => prev.map((p, i) => (
-      i === index ? { ...p, text, segments: rebaseSegments(p.segments, p.text, text), ...STALE_AUDIO } : p
+      i === index ? { ...p, text, segments: rebaseSegments(p.segments, p.text, text), marks: rebaseMarks(p.marks, p.text, text), ...STALE_AUDIO } : p
     )));
   }, []);
 
@@ -329,6 +332,19 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
 
   const clearHighlights = useCallback((index: number) => {
     editParagraph(index, (p) => ({ ...p, segments: [] }));
+  }, [editParagraph]);
+
+  /** Adds emphasis, a pronunciation or a pause. They combine with emotions, so nothing is refused here. */
+  const applyMark = useCallback((index: number, mark: TextMark) => {
+    editParagraph(index, (p) => ({ ...p, marks: addMark(p.marks, mark, p.text.length) }));
+  }, [editParagraph]);
+
+  const clearMarks = useCallback((index: number, start: number, end: number) => {
+    editParagraph(index, (p) => ({ ...p, marks: clearMarksRange(p.marks, start, end, p.text.length) }));
+  }, [editParagraph]);
+
+  const clearAllMarks = useCallback((index: number) => {
+    editParagraph(index, (p) => ({ ...p, marks: [] }));
   }, [editParagraph]);
 
   const deleteParagraph = useCallback((index: number) => {
@@ -489,6 +505,9 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     applyEmotionToRange,
     clearEmotionRange,
     clearHighlights,
+    applyMark,
+    clearMarks,
+    clearAllMarks,
     deleteParagraph,
     addParagraphAtStart,
     generateParagraphAudio,

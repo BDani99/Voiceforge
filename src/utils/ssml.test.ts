@@ -108,3 +108,100 @@ describe('emotion segments', () => {
     expect(ssml.replace(/<[^>]*>/g, '')).toBe('Some &lt;b&gt;markup&lt;/b&gt; &amp; &quot;quotes&quot;');
   });
 });
+
+describe('marks: emphasis, pronunciation and pauses', () => {
+  const text = 'It costs 3/4 of a dollar today. Really.';
+  const at = (needle: string) => ({ start: text.indexOf(needle), end: text.indexOf(needle) + needle.length });
+
+  it('leaves the output unchanged without marks', () => {
+    expect(buildSSML(text, { marks: [] })).toBe(buildSSML(text));
+  });
+
+  it('wraps an emphasised span in an emphasis tag', () => {
+    const ssml = buildSSML(text, { marks: [{ kind: 'emphasis', ...at('dollar'), value: 'strong' }] });
+    expect(ssml).toBe('<speak>It costs 3/4 of a <emphasis level="strong">dollar</emphasis> today. Really.</speak>');
+  });
+
+  it('reads a span as its alias with a sub tag (the documented way to say numbers and units)', () => {
+    const ssml = buildSSML(text, { marks: [{ kind: 'sub', ...at('3/4'), value: 'three quarters' }] });
+    expect(ssml).toContain('<sub alias="three quarters">3/4</sub>');
+    expect(ssml.replace(/<[^>]+>/g, '')).toBe(text);
+  });
+
+  it('escapes the alias and the text and never lets user input create tags', () => {
+    const ssml = buildSSML('a <b> c', { marks: [{ kind: 'sub', start: 2, end: 5, value: '"x" & <y>' }] });
+    expect(ssml).toContain('<sub alias="&quot;x&quot; &amp; &lt;y&gt;">&lt;b&gt;</sub>');
+  });
+
+  it('inserts a pause at its position, by time or by strength', () => {
+    const time = buildSSML('One. Two.', { marks: [{ kind: 'break', start: 4, end: 4, value: '750ms' }] });
+    expect(time).toBe('<speak>One.<break time="750ms"/> Two.</speak>');
+    const strength = buildSSML('One. Two.', { marks: [{ kind: 'break', start: 4, end: 4, value: 'strong' }] });
+    expect(strength).toContain('<break strength="strong"/>');
+  });
+
+  it('puts a pause at the very end after the text', () => {
+    expect(buildSSML('One', { marks: [{ kind: 'break', start: 3, end: 3, value: '500ms' }] })).toBe('<speak>One<break time="500ms"/></speak>');
+  });
+
+  it('shares one emphasis tag between neighbours and keeps a pause inside it', () => {
+    const ssml = buildSSML('abcdef', {
+      marks: [{ kind: 'emphasis', start: 0, end: 6, value: 'moderate' }, { kind: 'break', start: 3, end: 3, value: '300ms' }],
+    });
+    expect(ssml).toBe('<speak><emphasis level="moderate">abc<break time="300ms"/>def</emphasis></speak>');
+  });
+
+  it('combines with emotions: emphasis is split at the edge of an emotion, tags stay nested correctly', () => {
+    const ssml = buildSSML('one two three', {
+      emotionSegments: [{ start: 4, end: 7, emotion: 'sad' }],
+      marks: [{ kind: 'emphasis', start: 0, end: 13, value: 'reduced' }],
+    });
+    expect(ssml).toBe(
+      '<speak><emphasis level="reduced">one </emphasis>'
+      + '<speechify:style emotion="sad"><emphasis level="reduced">two</emphasis></speechify:style>'
+      + '<emphasis level="reduced"> three</emphasis></speak>',
+    );
+  });
+
+  it('never cuts a pronunciation at an emotion boundary', () => {
+    const ssml = buildSSML('say 3/4 now', {
+      emotionSegments: [{ start: 6, end: 11, emotion: 'calm' }],
+      marks: [{ kind: 'sub', start: 4, end: 7, value: 'three quarters' }],
+    });
+    expect(ssml).toContain('<sub alias="three quarters">3/4</sub>');
+    expect(ssml.match(/<sub /g)).toHaveLength(1);
+    // the emotion moved to the edge of the replacement, so the document is still well nested
+    expect(ssml).toBe('<speak>say <sub alias="three quarters">3/4</sub><speechify:style emotion="calm"> now</speechify:style></speak>');
+  });
+
+  it('works next to dictionary replacements and sentence pauses', () => {
+    const ssml = buildSSML('Hi NASA. Bye.', {
+      customReplacements: { NASA: 'N A S A' },
+      breaks: { enabled: true, pauseType: 'strength', pauseStrength: 'weak' },
+      marks: [{ kind: 'emphasis', start: 0, end: 2, value: 'strong' }],
+    });
+    expect(ssml).toContain('<emphasis level="strong">Hi</emphasis>');
+    expect(ssml).toContain('<sub alias="N A S A">NASA</sub>');
+    expect(ssml).toContain('<break strength="weak"/>');
+  });
+
+  it('rejects invalid mark values', () => {
+    expect(() => buildSSML('abc', { marks: [{ kind: 'emphasis', start: 0, end: 2, value: 'huge' }] })).toThrow(/Invalid emphasis/);
+    expect(() => buildSSML('abc', { marks: [{ kind: 'break', start: 1, end: 1, value: '99999ms' }] })).toThrow(/Invalid break/);
+  });
+
+  it('produces well-formed XML for every combination', () => {
+    const ssml = buildSSML('One two three four. Five six seven.', {
+      prosody: { pitch: 'high' },
+      emphasis: { enabled: true, level: 'moderate' },
+      emotionSegments: [{ start: 4, end: 12, emotion: 'calm' }],
+      marks: [
+        { kind: 'emphasis', start: 0, end: 8, value: 'strong' },
+        { kind: 'sub', start: 14, end: 18, value: 'four' },
+        { kind: 'break', start: 19, end: 19, value: '500ms' },
+      ],
+    });
+    const doc = new DOMParser().parseFromString(ssml.replace(/speechify:style/g, 'style'), 'application/xml');
+    expect(doc.querySelector('parsererror')).toBeNull();
+  });
+});

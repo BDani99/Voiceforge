@@ -46,6 +46,57 @@
   box-shadow: 0 0 0 1px hsl(var(--emo-hue) 70% 55% / 0.55);
 }
 
+/* Emphasis: an underline in the strength of the emphasis; pronunciations: dotted; pauses: a thin bar (no width, so the text never moves). */
+.et__emph {
+  text-decoration: underline;
+  text-decoration-color: #f59e0b;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+
+.et__emph--reduced {
+  text-decoration-style: dotted;
+  text-decoration-thickness: 1px;
+}
+
+.et__emph--moderate {
+  text-decoration-style: solid;
+  text-decoration-thickness: 1px;
+}
+
+.et__emph--strong {
+  text-decoration-style: solid;
+  text-decoration-thickness: 3px;
+}
+
+.et__sub {
+  text-decoration: underline dotted #38bdf8;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  background: rgba(56, 189, 248, 0.14);
+  border-radius: 3px;
+}
+
+.et__pause {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  vertical-align: text-bottom;
+}
+
+.et__pause::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 0.05em;
+  width: 2px;
+  height: 1.2em;
+  border-radius: 1px;
+  background: #34d399;
+  box-shadow: 0 0 4px rgba(52, 211, 153, 0.8);
+}
+
 .et__input {
   position: relative;
   display: block;
@@ -212,4 +263,117 @@
   font-size: 0.75rem;
   color: var(--accent-primary);
   text-decoration: underline;
+}
+
+/* ------------------------------------------- tabs, forms and tags for marks */
+
+.ec-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-md);
+}
+
+.ec-tab {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.ec-tab:hover {
+  color: var(--text-primary);
+}
+
+.ec-tab.is-active {
+  color: #fff;
+  background: var(--accent-primary);
+}
+
+.ec-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.ec-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ec-form__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.ec-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ec-input {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+}
+
+.ec-input--small {
+  flex: 0 0 90px;
+}
+
+.ec-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.ec-btn--primary {
+  color: #fff;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.ec-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ec-chip--emphasis {
+  --emo-hue: 38;
+}
+
+.ec-chip--pause {
+  --emo-hue: 160;
+}
+
+.ec-chip--pause.is-active {
+  background: hsl(var(--emo-hue) 70% 48% / 0.35);
+}
+
+.ec-tag--emphasis {
+  --emo-hue: 38;
+}
+
+.ec-tag--sub {
+  --emo-hue: 199;
+}
+
+.ec-tag--break {
+  --emo-hue: 160;
 }

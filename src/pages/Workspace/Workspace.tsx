@@ -210,6 +210,9 @@ function Workspace() {
                         onApplyEmotionToRange={speechify.applyEmotionToRange}
                         onClearEmotionRange={speechify.clearEmotionRange}
                         onClearHighlights={speechify.clearHighlights}
+                        onApplyMark={speechify.applyMark}
+                        onClearMarks={speechify.clearMarks}
+                        onClearAllMarks={speechify.clearAllMarks}
                         isFirstParagraph={index === 0}
                         isActive={audioPlayer.currentPlayingIndex === index}
                         getAudio={audioPlayer.getAudioFor}

@@ -35,6 +35,8 @@ export interface Paragraph {
   emotion: string;
   /** Emotions of highlighted parts. Excludes a paragraph emotion (see paragraphEmotion.ts). */
   segments: EmotionSegment[];
+  /** Emphasis, pronunciations and pauses. They combine with any emotion. */
+  marks: TextMark[];
 }
 
 /** Pitch, rate and volume: either a named preset or a custom percentage. */
@@ -51,6 +53,7 @@ export interface GlobalDefaults {
 }
 
 import type { EmotionSegment } from '../utils/emotionSegments';
+import type { TextMark } from '../utils/textMarks';
 
 export interface SsmlOptions {
   prosody?: { pitch?: string; rate?: string; volume?: string };
@@ -59,6 +62,8 @@ export interface SsmlOptions {
   emotion?: { enabled?: boolean; type?: string };
   /** Emotions for highlighted parts of the text. */
   emotionSegments?: EmotionSegment[];
+  /** Emphasis, pronunciations and manual pauses at positions in the text. */
+  marks?: TextMark[];
   customReplacements?: Record<string, string>;
   breaks?: {
     enabled?: boolean;
