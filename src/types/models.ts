@@ -1,3 +1,15 @@
+/** One language of a voice with its sample recording. */
+export interface VoiceLanguage {
+  locale: string;
+  preview_audio?: string | null;
+}
+
+/** A model a voice can be used with, and the languages it covers. */
+export interface VoiceModel {
+  name: string;
+  languages: VoiceLanguage[];
+}
+
 /** A Speechify voice as returned by the generate-speech Edge Function. */
 export interface Voice {
   id: string;
@@ -5,6 +17,10 @@ export interface Voice {
   name?: string;
   gender?: string;
   locale?: string;
+  avatar_image?: string | null;
+  preview_audio?: string | null;
+  tags?: string[] | null;
+  models?: VoiceModel[];
 }
 
 export interface Paragraph {

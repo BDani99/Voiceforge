@@ -27,6 +27,10 @@ describe('countBillableCharacters', () => {
 })
 
 describe('parseGenerateRequest', () => {
+  it.each(['simba-3.2', 'simba-3.0', 'simba-english', 'simba-multilingual'])('accepts the model %s', (model) => {
+    expect(parseGenerateRequest({ ...valid, model })).toMatchObject({ ok: true, value: { model } });
+  });
+
   it('accepts a valid request and applies defaults', () => {
     const result = parseGenerateRequest(valid)
     expect(result).toEqual({

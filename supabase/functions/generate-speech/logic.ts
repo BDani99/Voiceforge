@@ -5,7 +5,9 @@ export const MAX_INPUT_LENGTH = 20_000
 export const MAX_VOICE_ID_LENGTH = 128
 export const MAX_REQUESTS_PER_MINUTE = 60
 
-const ALLOWED_MODELS = new Set(['simba-english', 'simba-multilingual'])
+// simba-english and simba-multilingual are legacy models that Speechify is retiring; they stay allowed
+// because some languages are only available through simba-multilingual.
+const ALLOWED_MODELS = new Set(['simba-3.2', 'simba-3.0', 'simba-english', 'simba-multilingual'])
 const ALLOWED_ACTIONS = new Set(['generation', 'preview'])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const LOCALE_RE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/
