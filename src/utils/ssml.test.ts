@@ -68,3 +68,43 @@ describe('validateSSMLOptions', () => {
     expect(validateSSMLOptions({ breaks: { pauseTime: 99999 } })).toHaveLength(1);
   });
 });
+
+describe('emotion segments', () => {
+  const segments = [{ start: 6, end: 11, emotion: 'angry' }];
+
+  it('wraps only the highlighted part in a style tag', () => {
+    expect(buildSSML('Hello brave world', { emotionSegments: segments })).toBe(
+      '<speak>Hello <speechify:style emotion="angry">brave</speechify:style> world</speak>',
+    );
+  });
+
+  it('supports several segments with different emotions', () => {
+    const ssml = buildSSML('Oh no yes', { emotionSegments: [{ start: 0, end: 2, emotion: 'sad' }, { start: 6, end: 9, emotion: 'cheerful' }] });
+    expect(ssml).toBe('<speak><speechify:style emotion="sad">Oh</speechify:style> no <speechify:style emotion="cheerful">yes</speechify:style></speak>');
+  });
+
+  it('ignores the whole-text emotion when segments exist (they exclude each other)', () => {
+    const ssml = buildSSML('Hello brave world', { emotion: { enabled: true, type: 'calm' }, emotionSegments: segments });
+    expect(ssml.match(/speechify:style emotion="calm"/)).toBeNull();
+    expect(ssml).toContain('emotion="angry"');
+  });
+
+  it('still applies replacements, pauses and escaping inside and outside segments', () => {
+    const ssml = buildSSML('Fish & chips. Dr Who', {
+      emotionSegments: [{ start: 0, end: 13, emotion: 'warm' }],
+      customReplacements: { Dr: 'Doctor' },
+      breaks: { enabled: true, pauseType: 'strength', pauseStrength: 'weak' },
+    });
+    expect(ssml).toBe('<speak><speechify:style emotion="warm">Fish &amp; chips.</speechify:style> <sub alias="Doctor">Dr</sub> Who</speak>');
+  });
+
+  it('rejects unknown emotions instead of emitting them', () => {
+    expect(() => buildSSML('abc', { emotionSegments: [{ start: 0, end: 2, emotion: 'x"><evil' }] })).toThrow(/Invalid emotion/);
+  });
+
+  it('keeps every letter of the text', () => {
+    const text = 'Some <b>markup</b> & "quotes"';
+    const ssml = buildSSML(text, { emotionSegments: [{ start: 5, end: 18, emotion: 'sad' }] });
+    expect(ssml.replace(/<[^>]*>/g, '')).toBe('Some &lt;b&gt;markup&lt;/b&gt; &amp; &quot;quotes&quot;');
+  });
+});

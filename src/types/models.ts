@@ -46,10 +46,15 @@ export interface GlobalDefaults {
   useVolumeCustom: boolean;
 }
 
+import type { EmotionSegment } from '../utils/emotionSegments';
+
 export interface SsmlOptions {
   prosody?: { pitch?: string; rate?: string; volume?: string };
   emphasis?: { enabled?: boolean; level?: string };
+  /** One emotion for the whole text. Ignored when `emotionSegments` are given (the two exclude each other). */
   emotion?: { enabled?: boolean; type?: string };
+  /** Emotions for highlighted parts of the text. */
+  emotionSegments?: EmotionSegment[];
   customReplacements?: Record<string, string>;
   breaks?: {
     enabled?: boolean;

@@ -1,4 +1,5 @@
 import type { SsmlOptions } from '../types/models';
+import { toRuns } from './emotionSegments';
 
 const VALID_PITCH = ['x-low', 'low', 'medium', 'high', 'x-high'];
 const VALID_RATE = ['x-slow', 'slow', 'medium', 'fast', 'x-fast'];
@@ -29,7 +30,7 @@ function escapeRegExp(string: string): string {
 /** Returns a list of human readable problems, empty if the options are valid. */
 export function validateSSMLOptions(options: SsmlOptions = {}): string[] {
   const errors: string[] = [];
-  const { prosody, emphasis, emotion, breaks } = options;
+  const { prosody, emphasis, emotion, breaks, emotionSegments } = options;
 
   if (prosody) {
     const { pitch, rate, volume } = prosody;
@@ -44,6 +45,10 @@ export function validateSSMLOptions(options: SsmlOptions = {}): string[] {
 
   if (emotion?.enabled && !VALID_EMOTIONS.includes(emotion.type ?? '')) {
     errors.push(`Invalid emotion type: ${emotion.type}`);
+  }
+
+  for (const segment of emotionSegments ?? []) {
+    if (!VALID_EMOTIONS.includes(segment.emotion)) errors.push(`Invalid emotion type: ${segment.emotion}`);
   }
 
   if (breaks) {
@@ -102,6 +107,7 @@ export function buildSSML(text: string, options: SsmlOptions = {}): string {
     prosody = {},
     emphasis = {},
     emotion = {},
+    emotionSegments = [],
     customReplacements = {},
     breaks = {},
     addSilencePadding = false,
@@ -117,13 +123,24 @@ export function buildSSML(text: string, options: SsmlOptions = {}): string {
 
   const breakTag = sentenceBreakTag(breaks);
 
-  let content = splitOnReplacements(text, customReplacements)
+  const renderPiece = (piece: string): string => splitOnReplacements(piece, customReplacements)
     .map((part) => {
       const escaped = escapeXml(part.text);
       if (part.alias) return `<sub alias="${escapeXml(part.alias)}">${escaped}</sub>`;
       return breakTag ? escaped.replace(/([.!?])\s+/g, `$1${breakTag} `) : escaped;
     })
     .join('');
+
+  // Highlighted parts get their own style tag; the rest of the text stays neutral.
+  const hasSegments = emotionSegments.length > 0;
+  let content = hasSegments
+    ? toRuns(text, emotionSegments)
+      .map((run) => {
+        const rendered = renderPiece(run.text);
+        return run.emotion ? `<speechify:style emotion="${run.emotion}">${rendered}</speechify:style>` : rendered;
+      })
+      .join('')
+    : renderPiece(text);
 
   if (addSilencePadding) {
     const pad = `<break time="${silenceDuration}ms"/>`;
@@ -153,7 +170,8 @@ export function buildSSML(text: string, options: SsmlOptions = {}): string {
     content = `<prosody ${prosodyAttrs.join(' ')}>${content}</prosody>`;
   }
 
-  if (emotion.enabled && emotion.type) {
+  // Whole-text emotion and highlighted emotions exclude each other.
+  if (!hasSegments && emotion.enabled && emotion.type) {
     content = `<speechify:style emotion="${emotion.type}">${content}</speechify:style>`;
   }
 

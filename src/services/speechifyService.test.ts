@@ -30,7 +30,7 @@ describe('generateSpeech', () => {
       input: '<speak>Hello</speak>',
       voice_id: 'henry',
       language: 'en-US',
-      model: 'simba-english',
+      model: 'simba-3.2',
       action: 'preview',
       project_id: 'p1',
     } });
@@ -39,13 +39,44 @@ describe('generateSpeech', () => {
     expect(blob.size).toBe(3);
   });
 
-  it('uses the multilingual model for non-English languages and drops emotion/emphasis for them', async () => {
+  it('uses the model it is given and makes it part of the cache key', async () => {
+    await speechify.generateSpeech('same', 'v', 'en-US', {}, { model: 'simba-3.0' });
+    await speechify.generateSpeech('same', 'v', 'en-US', {}, { model: 'simba-3.2' });
+    expect(bodyOf(0)).toMatchObject({ model: 'simba-3.0' });
+    expect(bodyOf(1)).toMatchObject({ model: 'simba-3.2' });
+    expect(mocks.invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps emotion tags for models that support them, including highlighted parts', async () => {
+    await speechify.generateSpeech('Hello brave world', 'v', 'en-US', { emotionSegments: [{ start: 6, end: 11, emotion: 'angry' }] }, { model: 'simba-3.2' });
+    expect(bodyOf(0).input).toBe('<speak>Hello <speechify:style emotion="angry">brave</speechify:style> world</speak>');
+  });
+
+  it('drops emotion, highlighted emotions and emphasis for models without support', async () => {
+    await speechify.generateSpeech('Hello brave world', 'v', 'en-US', {
+      emotion: { enabled: true, type: 'calm' },
+      emotionSegments: [{ start: 6, end: 11, emotion: 'angry' }],
+      emphasis: { enabled: true, level: 'strong' },
+    }, { model: 'simba-multilingual' });
+    expect(bodyOf(0).input).toBe('<speak>Hello brave world</speak>');
+  });
+
+  it('uses the multilingual model for other languages by default and drops emotion/emphasis for them', async () => {
     await speechify.generateSpeech('Szia', 'v', 'hu-HU', {
       emotion: { enabled: true, type: 'calm' },
       emphasis: { enabled: true, level: 'strong' },
     });
 
     expect(bodyOf(0)).toMatchObject({ model: 'simba-multilingual', input: '<speak>Szia</speak>' });
+  });
+
+  it('retries without highlighted emotions when the voice rejects them', async () => {
+    mocks.invoke
+      .mockResolvedValueOnce({ data: null, error: httpError(400, 'bad ssml') })
+      .mockResolvedValueOnce({ data: audio, error: null });
+    await speechify.generateSpeech('Hello brave', 'v', 'en-US', { emotionSegments: [{ start: 0, end: 5, emotion: 'sad' }] }, { model: 'simba-3.2' });
+    expect(bodyOf(0).input).toContain('speechify:style');
+    expect(bodyOf(1).input).toBe('<speak>Hello brave</speak>');
   });
 
   it('serves repeated requests from the memory cache and honours forceRegenerate', async () => {
@@ -158,6 +189,19 @@ describe('synthesize', () => {
 
     expect(result).toBe(joined);
     expect(mocks.invoke.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gives every chunk only its own highlighted emotions, shifted to the chunk', async () => {
+    mocks.concatenateAudio.mockResolvedValue(new Blob(['joined']));
+    const first = 'Alpha beta gamma. '.repeat(120); // 2160 characters, second chunk starts inside it
+    const text = `${first}Omega delta.`;
+    const start = text.length - 12; // "Omega delta." is highlighted
+
+    await speechify.synthesize(text, 'v', 'en-US', { emotionSegments: [{ start, end: text.length, emotion: 'warm' }] }, { model: 'simba-3.2' });
+
+    const inputs = mocks.invoke.mock.calls.map((c) => (c[1] as { body: { input: string } }).body.input);
+    expect(inputs.filter((i) => i.includes('speechify:style'))).toHaveLength(1);
+    expect(inputs.find((i) => i.includes('speechify:style'))).toContain('<speechify:style emotion="warm">Omega delta.</speechify:style>');
     expect((mocks.concatenateAudio.mock.calls[0]?.[0] as Blob[]).length).toBe(mocks.invoke.mock.calls.length);
   });
 });

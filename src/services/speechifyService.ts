@@ -2,13 +2,14 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { buildSSML } from '../utils/ssml';
 import { concatenateAudio } from '../utils/audioProcessing';
-import { splitIntoChunks, MAX_CHARS_PER_REQUEST } from '../utils/text';
+import { splitIntoChunkRanges, MAX_CHARS_PER_REQUEST } from '../utils/text';
+import { sliceSegments } from '../utils/emotionSegments';
+import { autoModel, supportsEmotion } from '../utils/voices';
 import type { SsmlOptions, Voice } from '../types/models';
 
 const FUNCTION_NAME = 'generate-speech';
 const MAX_CONCURRENT_REQUESTS = 2; // keeps Speechify from answering 429
 const MAX_CACHE_ENTRIES = 50;
-const ENGLISH_LOCALES = ['en-US', 'en-GB'];
 
 export class SpeechServiceError extends Error {
   readonly status: number;
@@ -67,6 +68,8 @@ export interface RequestOptions {
   action?: 'generation' | 'preview';
   /** Project the usage is logged against. */
   projectId?: string;
+  /** Speechify model. Defaults to the automatic choice for the language. */
+  model?: string;
 }
 
 class SpeechifyService {
@@ -91,8 +94,8 @@ class SpeechifyService {
     this.audioCache.clear();
   }
 
-  getCacheKey(text: string, voiceId: string, language: string, ssmlOptions: SsmlOptions): string {
-    return JSON.stringify([voiceId, language, text, ssmlOptions]);
+  getCacheKey(text: string, voiceId: string, language: string, model: string, ssmlOptions: SsmlOptions): string {
+    return JSON.stringify([voiceId, language, model, text, ssmlOptions]);
   }
 
   /**
@@ -110,9 +113,15 @@ class SpeechifyService {
       return this.generateSpeech(text, voiceId, language, ssmlOptions, requestOptions);
     }
 
-    const chunks = splitIntoChunks(text);
+    // Highlighted emotions are positions in the full text, so every chunk gets its own share of them.
+    const chunks = splitIntoChunkRanges(text)
+      .map((range) => ({
+        text: text.slice(range.start, range.end),
+        options: { ...ssmlOptions, emotionSegments: sliceSegments(ssmlOptions.emotionSegments ?? [], range.start, range.end) },
+      }))
+      .filter((chunk) => chunk.text.trim());
     const blobs = await Promise.all(
-      chunks.map((chunk) => this.generateSpeech(chunk, voiceId, language, ssmlOptions, requestOptions)),
+      chunks.map((chunk) => this.generateSpeech(chunk.text, voiceId, language, chunk.options, requestOptions)),
     );
     return concatenateAudio(blobs, 0);
   }
@@ -125,8 +134,9 @@ class SpeechifyService {
     requestOptions: RequestOptions = {},
   ): Promise<Blob> {
     const { forceRegenerate = false, action = 'generation', projectId } = requestOptions;
+    const model = requestOptions.model ?? autoModel(undefined, language);
 
-    const cacheKey = this.getCacheKey(text, voiceId, language, ssmlOptions);
+    const cacheKey = this.getCacheKey(text, voiceId, language, model, ssmlOptions);
     const cachedBlob = this.audioCache.get(cacheKey);
     if (!forceRegenerate && cachedBlob) {
       // Re-insert to keep the Map ordered by recency.
@@ -135,13 +145,11 @@ class SpeechifyService {
       return cachedBlob;
     }
 
-    // Emotion and emphasis are only supported by the English model.
-    const isEnglish = ENGLISH_LOCALES.includes(language);
-    const effectiveOptions: SsmlOptions = isEnglish
+    // Emotion and emphasis are only supported by some models.
+    const effectiveOptions: SsmlOptions = supportsEmotion(model)
       ? ssmlOptions
-      : { ...ssmlOptions, emotion: { enabled: false }, emphasis: { enabled: false } };
+      : { ...ssmlOptions, emotion: { enabled: false }, emotionSegments: [], emphasis: { enabled: false } };
 
-    const model = language.startsWith('en') ? 'simba-english' : 'simba-multilingual';
     const buildBody = (options: SsmlOptions) => ({
       input: buildSSML(text, options),
       voice_id: voiceId,
@@ -156,7 +164,11 @@ class SpeechifyService {
       data = await this.invoke(buildBody(effectiveOptions));
     } catch (error) {
       const status = error instanceof SpeechServiceError ? error.status : 0;
-      const usesStyleTags = [effectiveOptions.emotion?.enabled, effectiveOptions.emphasis?.enabled].some(Boolean);
+      const usesStyleTags = [
+        effectiveOptions.emotion?.enabled,
+        (effectiveOptions.emotionSegments?.length ?? 0) > 0,
+        effectiveOptions.emphasis?.enabled,
+      ].some(Boolean);
 
       if (status === 400 && usesStyleTags) {
         // The voice most likely rejected the emotion/emphasis tags: retry as plain speech.
@@ -166,10 +178,11 @@ class SpeechifyService {
         data = await this.invoke(buildBody({
           ...effectiveOptions,
           emotion: { enabled: false },
+          emotionSegments: [],
           emphasis: { enabled: false },
         }));
       } else if (status >= 500 && model === 'simba-multilingual') {
-        throw new Error(`The simba-multilingual model (experimental) is currently unavailable. Please try again later! (Error: ${status})`);
+        throw new Error(`The simba-multilingual model (legacy) is currently unavailable. Try another model or try again later. (Error: ${status})`);
       } else {
         throw error;
       }
