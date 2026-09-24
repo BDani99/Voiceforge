@@ -29,18 +29,20 @@ export function ParagraphEmotionSelect({ paragraph, defaultEmotion, supported, o
   const mode = emotionMode(paragraph);
   const highlights = mode === 'highlights';
 
-  const options = [
-    { value: '', label: `Default · ${defaultEmotion ? emotionLabel(defaultEmotion) : 'neutral'}` },
-    { value: EMOTION_NEUTRAL, label: 'Neutral (no emotion)' },
-    ...EMOTION_OPTIONS.map((e) => ({ value: e.value, label: `${e.icon} ${e.label}` })),
-    ...(highlights ? [{ value: HIGHLIGHTS_VALUE, label: `Highlighted parts (${paragraph.segments.length})` }] : []),
-  ];
+  const options = !supported
+    ? [{ value: '', label: 'No emotions (model)' }]
+    : [
+        { value: '', label: `Default · ${defaultEmotion ? emotionLabel(defaultEmotion) : 'neutral'}` },
+        { value: EMOTION_NEUTRAL, label: 'Neutral (no emotion)' },
+        ...EMOTION_OPTIONS.map((e) => ({ value: e.value, label: `${e.icon} ${e.label}` })),
+        ...(highlights ? [{ value: HIGHLIGHTS_VALUE, label: `Highlighted parts (${paragraph.segments.length})` }] : []),
+      ];
 
   return (
-    <div className="ec-select" title={!supported ? 'The selected model does not support emotions' : highlights ? 'Clear the highlighted parts to set an emotion for the whole paragraph' : undefined}>
+    <div className="ec-select" title={!supported ? 'The selected model does not support emotions. Choose Simba 3.2 or 3.0.' : highlights ? 'Clear the highlighted parts to set an emotion for the whole paragraph' : undefined}>
       <CustomSelect
         ariaLabel="Emotion of this paragraph"
-        value={highlights ? HIGHLIGHTS_VALUE : paragraph.emotion}
+        value={!supported ? '' : highlights ? HIGHLIGHTS_VALUE : paragraph.emotion}
         onChange={(value) => onChange(value)}
         options={options}
         disabled={!supported || highlights}

@@ -42,6 +42,8 @@
   transition: all var(--transition-base);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   flex-shrink: 0;
+  min-width: 150px; /* Play All, Pause and Resume must not shift the bar */
+  justify-content: center;
 }
 
 .play-all-btn:hover:not(:disabled) {

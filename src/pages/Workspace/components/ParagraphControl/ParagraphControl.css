@@ -91,25 +91,16 @@
 
 /* Global Settings Display */
 .global-settings-display {
-  display: flex;
-  gap: var(--space-sm);
-  flex: 1 1 160px;
+  flex: 1 1 140px;
   min-width: 0;
-  align-items: center;
-  overflow-x: auto;
-}
-
-.setting-display {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--text-tertiary);
   white-space: nowrap;
-  padding: 4px var(--space-sm);
-  background: var(--bg-input);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-light);
+  overflow: hidden;
+  text-overflow: ellipsis; /* the full values are in the tooltip */
 }
 
-.setting-display strong {
+.global-settings-display strong {
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -325,7 +316,7 @@
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 600;
-  margin-left: 8px;
+  white-space: nowrap;
   animation: flashGreen 2s ease-out;
 }
 

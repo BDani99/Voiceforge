@@ -20,7 +20,7 @@ interface VoiceCardProps {
 /** The selected voice as a big button; clicking it opens the voice picker. */
 export default function VoiceCard({ voice, language, model, isLoading, disabled = false, player, onOpen }: VoiceCardProps) {
   const details = voice ? [genderLabel(voice.gender), localeLabel(voice.locale ?? language)].filter(Boolean).join(' · ') : '';
-  const tags = voice ? voiceUseCases(voice).slice(0, 2) : [];
+  const tags = voice ? voiceUseCases(voice).slice(0, 1) : [];
 
   return (
     <div className="vc">

@@ -149,10 +149,13 @@ export const genderLabel = (gender: string | undefined): string => {
   return '';
 };
 
-/** "use-case:customer-service-ivr" to "Customer service ivr". */
+const ACRONYMS = new Set(['ai', 'ivr', 'tv', 'tts', 'asmr']);
+
+/** "use-case:customer-service-ivr" to "Customer service IVR". */
 export function tagLabel(tag: string): string {
   const value = tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag;
-  const spaced = value.replace(/[-_]/g, ' ');
+  const words = value.split(/[-_]/).map((word) => (ACRONYMS.has(word.toLowerCase()) ? word.toUpperCase() : word));
+  const spaced = words.join(' ');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 

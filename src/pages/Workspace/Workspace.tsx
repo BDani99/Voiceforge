@@ -211,6 +211,7 @@ function Workspace() {
                         onClearEmotionRange={speechify.clearEmotionRange}
                         onClearHighlights={speechify.clearHighlights}
                         isFirstParagraph={index === 0}
+                        isActive={audioPlayer.currentPlayingIndex === index}
                         getAudio={audioPlayer.getAudioFor}
                         onSeek={audioPlayer.seekParagraph}
                       />

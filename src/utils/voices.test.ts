@@ -101,7 +101,8 @@ describe('languages', () => {
 
 describe('labels', () => {
   it('humanises tags and extracts use cases', () => {
-    expect(tagLabel('use-case:customer-service-ivr')).toBe('Customer service ivr');
+    expect(tagLabel('use-case:customer-service-ivr')).toBe('Customer service IVR');
+    expect(tagLabel('use-case:conversational-ai')).toBe('Conversational AI');
     expect(tagLabel('plain')).toBe('Plain');
     expect(voiceUseCases(alicia)).toEqual(['Audiobook', 'Podcast']);
   });

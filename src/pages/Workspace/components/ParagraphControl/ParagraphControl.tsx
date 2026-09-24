@@ -29,6 +29,8 @@ interface ParagraphControlProps {
   onClearEmotionRange: (index: number, start: number, end: number) => void;
   onClearHighlights: (index: number) => void;
   isFirstParagraph?: boolean;
+  /** This paragraph is the one that plays or is paused. */
+  isActive?: boolean;
   /** The audio element of a paragraph while it is playing or paused. */
   getAudio?: (index: number) => HTMLAudioElement | null;
   /** Jumps to a position (0..1) in the audio of a paragraph. */
@@ -58,6 +60,7 @@ function ParagraphControl({
   onClearEmotionRange,
   onClearHighlights,
   isFirstParagraph = false,
+  isActive = false,
   getAudio,
   onSeek,
 }: ParagraphControlProps) {
@@ -90,7 +93,7 @@ function ParagraphControl({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [isPlaying, getAudio, index]);
+  }, [isPlaying, isActive, getAudio, index]);
 
   const seekTo = (fraction: number) => {
     const position = Math.max(0, Math.min(1, fraction));
@@ -111,11 +114,11 @@ function ParagraphControl({
     seekTo((currentTime + step) / duration);
   };
 
-  const formatTime = (secs: number) => {
+  /** Elapsed time rounds down, the total rounds up, so a clip never looks shorter than it is. */
+  const formatTime = (secs: number, round: (value: number) => number = Math.floor) => {
     if (isNaN(secs) || !isFinite(secs)) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    const whole = round(secs);
+    return `${Math.floor(whole / 60)}:${(whole % 60).toString().padStart(2, '0')}`;
   };
 
   const handleTextChange = (newText: string) => {
@@ -158,13 +161,11 @@ function ParagraphControl({
           <span className="paragraph-number">#{index + 1}</span>
           <span className="paragraph-chars">{paragraph.text.length} chars</span>
           {isGenerated && <Check size={16} className="status-icon success" />}
-          {paragraph.wasCached && <span className="cache-badge">Cached (0 credits)</span>}
+          {paragraph.wasCached && <span className="cache-badge" title="Loaded from the shared cache: no credits were charged">Cached</span>}
         </div>
 
-        <div className="global-settings-display">
-          <span className="setting-display">Pitch: <strong>{pitch}</strong></span>
-          <span className="setting-display">Speed: <strong>{rate}</strong></span>
-          <span className="setting-display">Volume: <strong>{volume}</strong></span>
+        <div className="global-settings-display" title={`Pitch ${pitch}, speed ${rate}, volume ${volume}`}>
+          Pitch <strong>{pitch}</strong> · Speed <strong>{rate}</strong> · Vol <strong>{volume}</strong>
         </div>
 
         <ParagraphEmotionSelect
@@ -240,7 +241,7 @@ function ParagraphControl({
               aria-valuemin={0}
               aria-valuemax={Math.round(duration)}
               aria-valuenow={Math.round(currentTime)}
-              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration, Math.ceil)}`}
               onClick={handleSeek}
               onKeyDown={handleSeekKey}
             >
@@ -251,7 +252,7 @@ function ParagraphControl({
                 />
               </div>
             </div>
-            <div className="local-time">{formatTime(duration)}</div>
+            <div className="local-time">{formatTime(duration, Math.ceil)}</div>
           </div>
         )}
       </div>
