@@ -3,9 +3,24 @@
 /* ------------------------------------------------------------------ voice card */
 
 .vc {
-  position: relative;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-right: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.vc:hover,
+.vc:focus-within {
+  border-color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.vc:focus-within:has(.vc__main:focus-visible) {
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .vc__main {
@@ -14,25 +29,16 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 12px 14px;
-  padding-right: 56px; /* room for the sample button */
+  padding: 12px 0 12px 14px;
   text-align: left;
   color: var(--text-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-medium);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.vc__main:hover:not(:disabled) {
-  border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.06);
 }
 
 .vc__main:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  border-color: var(--accent-primary);
 }
 
 .vc__main:disabled {
@@ -74,9 +80,9 @@
 }
 
 .vc__sample {
-  position: absolute;
-  top: 12px;
-  right: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 /* --------------------------------------------------------------------- shared */
