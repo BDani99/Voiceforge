@@ -143,25 +143,6 @@
   animation: shake 0.4s ease-in-out;
 }
 
-.password-strength-meter {
-  display: flex;
-  gap: 4px;
-  margin-top: -8px;
-  margin-bottom: 8px;
-}
-
-.strength-bar {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background-color: #334155;
-  transition: background-color 0.3s;
-}
-
-.strength-weak { background-color: #ef4444; }
-.strength-medium { background-color: #f59e0b; }
-.strength-strong { background-color: #10b981; }
-
 .auth-error {
   color: #ef4444;
   font-size: 0.85rem;

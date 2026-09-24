@@ -16,6 +16,7 @@ import {
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
+import PasswordStrengthMeter from '../../components/PasswordStrengthMeter/PasswordStrengthMeter';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import './Profile.css';
@@ -461,12 +462,7 @@ export default function Profile() {
                     <AlertTriangle size={14} /> Passwords do not match
                   </div>
                 )}
-                {newPassword.length > 0 && (
-                  <div className="password-strength">
-                    <div className={`strength-bar ${newPassword.length >= 8 ? newPassword.length >= 12 ? 'strong' : 'medium' : 'weak'}`}></div>
-                    <span>{newPassword.length >= 12 ? 'Strong' : newPassword.length >= 8 ? 'Medium' : 'Too short'}</span>
-                  </div>
-                )}
+                <PasswordStrengthMeter password={newPassword} />
                 <button
                   type="submit"
                   className="btn-save"

@@ -1,9 +1,10 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { notify, getErrorMessage } from '../../utils/notificationService';
-import { isPasswordBreached, passwordStrength, validatePassword } from '../../utils/passwordPolicy';
+import { isPasswordBreached, validatePassword } from '../../utils/passwordPolicy';
+import PasswordStrengthMeter from '../../components/PasswordStrengthMeter/PasswordStrengthMeter';
 import { Eye, EyeOff } from 'lucide-react';
 import './Auth.css';
 
@@ -21,7 +22,6 @@ export default function Auth() {
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
 
-  const strength = useMemo(() => passwordStrength(password), [password]);
 
   const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -77,23 +77,6 @@ export default function Auth() {
     setShowConfirmPassword(false);
   };
 
-  const renderStrengthMeter = () => {
-    if (isLogin || password.length === 0) return null;
-    return (
-      <div className="password-strength-meter">
-        {[1, 2, 3, 4].map(level => {
-          let className = 'strength-bar';
-          if (strength >= level) {
-            if (strength <= 1) className += ' strength-weak';
-            else if (strength === 2) className += ' strength-medium';
-            else className += ' strength-strong';
-          }
-          return <div key={level} className={className}></div>;
-        })}
-      </div>
-    );
-  };
-
   if (!authLoading && session) return <Navigate to="/projects" replace />;
 
   return (
@@ -138,7 +121,7 @@ export default function Auth() {
             </button>
           </div>
 
-          {renderStrengthMeter()}
+          {!isLogin && <PasswordStrengthMeter password={password} />}
 
           {!isLogin && (
             <div className="password-input-wrapper">

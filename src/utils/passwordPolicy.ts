@@ -10,6 +10,10 @@ export function passwordStrength(password: string): number {
   return score;
 }
 
+const STRENGTH_LABELS = ['', 'Weak', 'Fair', 'Good', 'Strong'] as const;
+
+export const strengthLabel = (score: number): string => STRENGTH_LABELS[Math.min(Math.max(score, 0), 4)] ?? '';
+
 /** Returns an error message for an unacceptable password, or null when it is fine. */
 export function validatePassword(password: string): string | null {
   if (password.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;

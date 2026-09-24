@@ -431,30 +431,6 @@
   font-size: 0.85rem;
 }
 
-.password-strength {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.strength-bar {
-  flex: 1;
-  height: 4px;
-  border-radius: 99px;
-  background: rgba(255,255,255,0.1);
-  position: relative;
-}
-.strength-bar::after {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; height: 100%;
-  border-radius: 99px;
-  transition: width 0.3s, background 0.3s;
-}
-.strength-bar.weak::after   { width: 33%; background: #ef4444; }
-.strength-bar.medium::after { width: 66%; background: #f59e0b; }
-.strength-bar.strong::after { width: 100%; background: #10b981; }
-.password-strength span { font-size: 0.8rem; color: #64748b; white-space: nowrap; }
-
 .btn-save {
   display: flex;
   align-items: center;
