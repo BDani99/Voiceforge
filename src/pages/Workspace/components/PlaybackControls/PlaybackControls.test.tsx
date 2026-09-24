@@ -58,7 +58,7 @@ describe('PlaybackControls', () => {
     expect(first).toHaveClass('playing');
     expect(first).toHaveAttribute('aria-current', 'true');
     expect(second).not.toHaveClass('playing');
-    expect((first?.querySelector('.segment-progress')!).style.width).toBe('25%');
+    expect(first?.querySelector<HTMLElement>('.segment-progress')?.style.width).toBe('25%');
 
     rerender(<PlaybackControls {...props({ isPlaying: false, currentPlayingIndex: 0, getAudioFor: (i) => (i === 0 ? audio : null) })} />);
     expect(container.querySelector('.progress-segment')).toHaveClass('paused');
