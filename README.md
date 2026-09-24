@@ -34,6 +34,20 @@ npm run dev               # http://localhost:3000
 CI (`.github/workflows/ci.yml`) runs type-check, lint, tests, `npm audit` and the build, and
 type-checks the Edge Function with `deno check`.
 
+## Features in the workspace
+
+- **Voice picker**: the selected voice is a card (avatar, gender, language, model). Clicking it opens a
+  searchable list of all Speechify voices, filterable by language, model, use case and gender, with
+  a sample player for every voice.
+- **Model**: chosen automatically for the voice and language (Simba 3.2 for English, Simba 3.0 for the
+  other supported languages) and changeable by hand. Legacy models are marked as such.
+- **Emotion**: set for a whole paragraph, for all paragraphs at once, or for highlighted parts of the
+  text. A paragraph uses either a whole-paragraph emotion or highlights, never both. Emotions are
+  sent as `<speechify:style>` SSML and are only available with models that support them.
+- **Pitch, speed and volume** sit under the voice card; **Voice presets** save the whole setup
+  (voice, model, tuning, pauses, emotion) with rename, duplicate, overwrite and a default preset that
+  is applied to new projects.
+
 ## Supabase setup
 
 1. Apply the SQL files in [supabase/migrations](supabase/migrations) in filename order
@@ -45,6 +59,7 @@ type-checks the Edge Function with `deno check`.
    - `credit_reservations_and_suspension`: atomic credit reservations with automatic refund of
      crashed requests (pg_cron), a per-minute rate limit and suspension enforced by RLS.
    - `system_settings_policies`: admin write policies split by command.
+   - `presets_default_and_names`: one default preset per user, unique names, `set_default_preset()`.
 2. Set the Edge Function secrets and deploy it:
 
    ```bash
