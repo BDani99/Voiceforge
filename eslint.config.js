@@ -35,6 +35,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ['**/*.test.{ts,tsx}'],
+    rules: {
+      // Mock methods are passed around as plain functions, and async test bodies are fine without await.
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
+  {
     files: ['*.config.js', '*.config.ts'],
     languageOptions: { globals: globals.node },
   },

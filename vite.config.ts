@@ -48,6 +48,11 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}', 'supabase/**/*.test.ts'],
       css: false,
+      // Deterministic environment: tests never depend on a developer's local .env.
+      env: {
+        VITE_SUPABASE_URL: 'https://test-project.supabase.co',
+        VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      },
     },
     build: {
       rollupOptions: {
