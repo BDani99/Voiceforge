@@ -1,0 +1,35 @@
+.ms {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ms__info {
+  margin: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.ms__info strong {
+  color: var(--text-primary);
+}
+
+.ms__auto {
+  padding: 1px 8px;
+  font-size: 0.68rem;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.16);
+  border-radius: var(--radius-full);
+}
+
+.ms__description {
+  flex-basis: 100%;
+}

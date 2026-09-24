@@ -74,6 +74,8 @@ export interface SsmlOptions {
 export interface PresetSettings {
   language?: string;
   voice?: string;
+  /** "auto" or a model name. */
+  model?: string;
   globalDefaults?: GlobalDefaults;
   pauseStrength?: string;
   usePauseCustom?: boolean;

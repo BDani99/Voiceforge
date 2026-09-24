@@ -157,12 +157,12 @@ export function tagLabel(tag: string): string {
 }
 
 /** Use-case tags of a voice, e.g. ["Audiobook", "Podcast"]. */
-export function useCases(voice: Voice): string[] {
+export function voiceUseCases(voice: Voice): string[] {
   return (voice.tags ?? []).filter((t) => t.startsWith('use-case:')).map(tagLabel);
 }
 
 /** Every use case that occurs in the list, most common first. */
-export function useCaseOptions(voices: Voice[]): { value: string; count: number }[] {
+export function voiceUseCaseOptions(voices: Voice[]): { value: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const voice of voices) {
     for (const tag of new Set(voice.tags ?? [])) {

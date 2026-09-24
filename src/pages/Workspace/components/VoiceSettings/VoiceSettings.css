@@ -142,3 +142,81 @@
   border-color: var(--accent-primary);
   color: var(--accent-primary);
 }
+
+/* ------------------------------------------------ stacked prosody controls (pc-) */
+
+.pc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.pc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pc__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.pc__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pc__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pc__slider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 42px;
+}
+
+.pc__slider .global-range {
+  margin: 0;
+  flex: 1;
+}
+
+.pc__slider .range-value {
+  min-width: 56px;
+}
+
+.pc__toggle {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.pc__toggle:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.pc__toggle.is-active {
+  color: #fff;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.pc__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}

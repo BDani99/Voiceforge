@@ -27,6 +27,9 @@
   animation: slideUp 0.3s ease-out;
 }
 
+.modal-container--lg { max-width: 960px; }
+.modal-container--xl { max-width: 1080px; }
+
 .modal-header {
   display: flex;
   justify-content: space-between;

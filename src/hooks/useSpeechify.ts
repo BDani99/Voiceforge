@@ -474,6 +474,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     selectedVoiceInfo,
     selectedLanguage,
     model,
+    isLoaded,
     isLoadingVoices,
     error,
     setError,

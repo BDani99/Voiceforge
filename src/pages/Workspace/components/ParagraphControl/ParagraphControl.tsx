@@ -1,6 +1,9 @@
 import { useRef, useEffect, useState, type MouseEvent } from 'react';
-import { Play, Pause, Loader2, Mic, Check, Volume2, Trash2 } from 'lucide-react';
+import { Play, Pause, Loader2, Mic, Check, Trash2 } from 'lucide-react';
 import type { GlobalDefaults, Paragraph } from '../../../../types/models';
+import type { EmotionSegment } from '../../../../utils/emotionSegments';
+import EmotionTextarea, { type TextRange } from './EmotionTextarea';
+import { EmotionToolbar, HighlightList, ParagraphEmotionSelect } from './EmotionControls';
 import './ParagraphControl.css';
 
 interface ParagraphControlProps {
@@ -16,13 +19,22 @@ interface ParagraphControlProps {
   isGenerating: boolean;
   isGenerated: boolean;
   globalDefaults: GlobalDefaults;
-  currentEmotion?: string;
+  /** Emotion that applies to paragraphs without their own setting. */
+  defaultEmotion: string;
+  /** Whether the model in use supports emotions. */
+  emotionSupported: boolean;
+  onSetEmotion: (index: number, emotion: string) => void;
+  onApplyEmotionToRange: (index: number, start: number, end: number, emotion: string) => void;
+  onClearEmotionRange: (index: number, start: number, end: number) => void;
+  onClearHighlights: (index: number) => void;
   isFirstParagraph?: boolean;
   /** Returns the audio element that is currently playing, if any. */
   globalAudio?: () => HTMLAudioElement | null;
 }
 
-/** One text block with generate/play/delete controls, a progress bar and a selection preview. */
+const percent = (value: number): string => `${value >= 0 ? '+' : ''}${value}%`;
+
+/** One text block: emotions, generate/play/delete controls, a progress bar and a selection preview. */
 function ParagraphControl({
   paragraph,
   index,
@@ -36,20 +48,25 @@ function ParagraphControl({
   isGenerating,
   isGenerated,
   globalDefaults,
-  currentEmotion,
+  defaultEmotion,
+  emotionSupported,
+  onSetEmotion,
+  onApplyEmotionToRange,
+  onClearEmotionRange,
+  onClearHighlights,
   isFirstParagraph = false,
-  globalAudio
+  globalAudio,
 }: ParagraphControlProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [selection, setSelection] = useState('');
+  const [range, setRange] = useState<TextRange | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Update progress smoothly using globalAudio
   useEffect(() => {
     let animationFrameId: number | undefined;
-    
+
     const updateProgress = () => {
       if (isPlaying && globalAudio) {
         const audio = globalAudio();
@@ -90,7 +107,7 @@ function ParagraphControl({
   const handleSeek = (e: MouseEvent<HTMLDivElement>) => {
     const targetAudio = globalAudio ? globalAudio() : null;
     if (!targetAudio || !duration) return;
-    
+
     const rect = e.currentTarget.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     targetAudio.currentTime = pos * duration;
@@ -110,54 +127,32 @@ function ParagraphControl({
     } else {
       onUpdate(index, newText);
     }
-    setSelection(''); // clear selection on edit
+    setRange(null); // positions changed
   };
 
-  const handleMouseUp = () => {
-    if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart;
-      const end = textareaRef.current.selectionEnd;
-      if (start !== end) {
-        const selectedStr = paragraph.text.substring(start, end).trim();
-        if (selectedStr.length > 0 && selectedStr.length < 150) {
-          // Only show for short selections to avoid huge preview costs
-          setSelection(selectedStr);
-        } else {
-          setSelection('');
-        }
-      } else {
-        setSelection('');
-      }
-    }
+  const applyEmotion = (emotion: string) => {
+    if (!range) return;
+    onApplyEmotionToRange(index, range.start, range.end, emotion);
+    setRange(null);
   };
+
+  const selectedText = range ? paragraph.text.slice(range.start, range.end).trim() : '';
 
   const handlePreview = async () => {
-    if (!selection) return;
-    if (onPreview) {
-      setIsPreviewing(true);
-      await onPreview(selection);
+    if (!selectedText || !onPreview) return;
+    setIsPreviewing(true);
+    try {
+      await onPreview(selectedText);
+    } finally {
       setIsPreviewing(false);
-      setSelection(''); // hide after playing
     }
   };
 
-  const getGlobalPitchDisplay = () => {
-    return globalDefaults.usePitchCustom
-      ? `${globalDefaults.pitchCustom >= 0 ? '+' : ''}${globalDefaults.pitchCustom}%`
-      : globalDefaults.pitch;
-  };
+  const removeSegment = (segment: EmotionSegment) => onClearEmotionRange(index, segment.start, segment.end);
 
-  const getGlobalRateDisplay = () => {
-    return globalDefaults.useRateCustom
-      ? `${globalDefaults.rateCustom >= 0 ? '+' : ''}${globalDefaults.rateCustom}%`
-      : globalDefaults.rate;
-  };
-
-  const getGlobalVolumeDisplay = () => {
-    return globalDefaults.useVolumeCustom
-      ? `${globalDefaults.volumeCustom >= 0 ? '+' : ''}${globalDefaults.volumeCustom}%`
-      : globalDefaults.volume;
-  };
+  const pitch = globalDefaults.usePitchCustom ? percent(globalDefaults.pitchCustom) : globalDefaults.pitch;
+  const rate = globalDefaults.useRateCustom ? percent(globalDefaults.rateCustom) : globalDefaults.rate;
+  const volume = globalDefaults.useVolumeCustom ? percent(globalDefaults.volumeCustom) : globalDefaults.volume;
 
   return (
     <div className={`paragraph-box ${isPlaying ? 'playing' : ''} ${isGenerated ? 'generated' : ''}`}>
@@ -170,21 +165,17 @@ function ParagraphControl({
         </div>
 
         <div className="global-settings-display">
-          <span className="setting-display">
-            Pitch: <strong>{getGlobalPitchDisplay()}</strong>
-          </span>
-          <span className="setting-display">
-            Speed: <strong>{getGlobalRateDisplay()}</strong>
-          </span>
-          <span className="setting-display">
-            Volume: <strong>{getGlobalVolumeDisplay()}</strong>
-          </span>
-          {currentEmotion && (
-            <span className="setting-display">
-              Emotion: <strong>{currentEmotion}</strong>
-            </span>
-          )}
+          <span className="setting-display">Pitch: <strong>{pitch}</strong></span>
+          <span className="setting-display">Speed: <strong>{rate}</strong></span>
+          <span className="setting-display">Volume: <strong>{volume}</strong></span>
         </div>
+
+        <ParagraphEmotionSelect
+          paragraph={paragraph}
+          defaultEmotion={defaultEmotion}
+          supported={emotionSupported}
+          onChange={(emotion) => onSetEmotion(index, emotion)}
+        />
 
         <div className="paragraph-actions">
           <button
@@ -215,32 +206,39 @@ function ParagraphControl({
       </div>
 
       <div className="paragraph-text">
-        {selection && (
-          <button className="preview-popup" onClick={handlePreview} disabled={isPreviewing}>
-            {isPreviewing ? <Loader2 size={14} className="spinning" /> : <Volume2 size={14} />}
-            Play Preview
-          </button>
-        )}
-        <textarea
-          aria-label={`Paragraph ${index + 1} text`}
-          ref={textareaRef}
+        <EmotionTextarea
+          textareaRef={textareaRef}
           value={paragraph.text}
-          onChange={(e) => handleTextChange(e.target.value)}
-          onMouseUp={handleMouseUp}
-          onKeyUp={handleMouseUp}
-          className="paragraph-textarea"
-          rows={4}
-          placeholder={isFirstParagraph ? "Paste your text here. Multiple paragraphs will be automatically split..." : "Enter paragraph text..."}
+          segments={paragraph.segments}
+          ariaLabel={`Paragraph ${index + 1} text`}
+          placeholder={isFirstParagraph ? 'Paste your text here. Multiple paragraphs will be automatically split...' : 'Enter paragraph text...'}
+          onChange={handleTextChange}
+          onSelectionChange={setRange}
         />
-        
+
+        <EmotionToolbar
+          paragraph={paragraph}
+          supported={emotionSupported}
+          range={range}
+          onApply={applyEmotion}
+          onClearRange={() => {
+            if (range) onClearEmotionRange(index, range.start, range.end);
+            setRange(null);
+          }}
+          onPreview={onPreview ? () => void handlePreview() : undefined}
+          isPreviewing={isPreviewing}
+        />
+
+        <HighlightList paragraph={paragraph} onRemove={removeSegment} onClearAll={() => onClearHighlights(index)} />
+
         {/* Local Progress Bar */}
         {(isGenerated || isGenerating) && (
           <div className="local-timeline-container">
             <div className="local-time">{formatTime(currentTime)}</div>
             <div className="local-progress-bar-wrapper" onClick={handleSeek}>
               <div className="local-progress-bg">
-                <div 
-                  className="local-progress-fill" 
+                <div
+                  className="local-progress-fill"
                   style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
                 />
               </div>
@@ -252,6 +250,5 @@ function ParagraphControl({
     </div>
   );
 }
-
 
 export default ParagraphControl;

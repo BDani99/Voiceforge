@@ -1,0 +1,215 @@
+/* Emotion editing of a paragraph: highlighted text (et-) and the controls around it (ec-). */
+
+/* ------------------------------------------------------- text with highlights */
+
+.et {
+  position: relative;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+}
+
+.et:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: var(--bg-card);
+}
+
+/* The two layers must have exactly the same text metrics. */
+.et__backdrop,
+.et__input {
+  margin: 0;
+  padding: var(--space-md);
+  border: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: normal;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.et__backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+.et__mark {
+  color: transparent;
+  background: hsl(var(--emo-hue) 70% 48% / 0.32);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px hsl(var(--emo-hue) 70% 55% / 0.55);
+}
+
+.et__input {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 100px;
+  overflow: hidden;
+  resize: none;
+  color: var(--text-primary);
+  background: transparent;
+  outline: none;
+}
+
+.et__input::placeholder {
+  color: var(--text-muted);
+}
+
+.et__input:disabled {
+  opacity: 0.6;
+}
+
+/* --------------------------------------------------------------------- controls */
+
+.ec-select {
+  min-width: 170px;
+}
+
+.ec-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: var(--radius-md);
+}
+
+.ec-toolbar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ec-toolbar__selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.ec-toolbar__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.ec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ec-chip,
+.ec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.ec-chip {
+  color: hsl(var(--emo-hue, 220) 80% 78%);
+  border-color: hsl(var(--emo-hue, 220) 60% 50% / 0.5);
+  background: hsl(var(--emo-hue, 220) 70% 48% / 0.1);
+}
+
+.ec-chip:hover {
+  background: hsl(var(--emo-hue, 220) 70% 48% / 0.28);
+}
+
+.ec-chip--clear {
+  color: var(--text-secondary);
+  border-color: var(--border-medium);
+  background: transparent;
+}
+
+.ec-chip--clear:hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.ec-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+.ec-chip:focus-visible,
+.ec-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.ec-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 8px;
+}
+
+.ec-highlights__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.ec-highlights__list {
+  display: contents;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ec-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  font-size: 0.76rem;
+  color: hsl(var(--emo-hue) 80% 80%);
+  background: hsl(var(--emo-hue) 70% 48% / 0.16);
+  border: 1px solid hsl(var(--emo-hue) 60% 50% / 0.5);
+  border-radius: var(--radius-full);
+}
+
+.ec-tag__text {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.ec-tag button {
+  display: inline-flex;
+  padding: 3px;
+  color: inherit;
+  border-radius: 50%;
+}
+
+.ec-tag button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.ec-link {
+  font-size: 0.75rem;
+  color: var(--accent-primary);
+  text-decoration: underline;
+}

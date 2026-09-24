@@ -3,17 +3,18 @@ import { notify } from '../../utils/notificationService';
 import { Type, Plus } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import Header from '../../components/Header/Header';
-import VoiceSettings from './components/VoiceSettings/VoiceSettings';
 import RightPanel from './components/RightPanel/RightPanel';
 import PlaybackControls from './components/PlaybackControls/PlaybackControls';
 import ParagraphControl from './components/ParagraphControl/ParagraphControl';
-import Presets from './components/Presets/Presets';
+import PresetsPanel from './components/Presets/PresetsPanel';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useVoiceSettings } from '../../hooks/useVoiceSettings';
 import { useSpeechify } from '../../hooks/useSpeechify';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useDictionary } from '../../hooks/useDictionary';
+import { usePresets } from '../../hooks/usePresets';
+import { supportsEmotion } from '../../utils/voices';
 import type { PresetSettings } from '../../types/models';
 import './Workspace.css';
 
@@ -90,9 +91,10 @@ function Workspace() {
     voiceSettings.resetSettings();
   };
 
-  const currentPresetSettings = {
+  const currentPresetSettings: PresetSettings = {
     language: speechify.selectedLanguage,
     voice: speechify.selectedVoice,
+    model: voiceSettings.modelChoice,
     globalDefaults: voiceSettings.globalDefaults,
     pauseStrength: voiceSettings.pauseStrength,
     usePauseCustom: voiceSettings.usePauseCustom,
@@ -108,7 +110,11 @@ function Workspace() {
 
   const applyPreset = (settings: PresetSettings) => {
     if (settings.language) speechify.handleLanguageChange(settings.language);
-    if (settings.voice) speechify.handleVoiceChange(settings.voice);
+    if (settings.voice) {
+      if (speechify.voices.some((v) => v.id === settings.voice)) speechify.handleVoiceChange(settings.voice);
+      else notify.warning('The voice saved in this preset is no longer available. Pick another voice.');
+    }
+    if (settings.model !== undefined) voiceSettings.setModelChoice(settings.model);
     if (settings.globalDefaults) voiceSettings.replaceGlobalDefaults(settings.globalDefaults);
     if (settings.pauseStrength !== undefined) voiceSettings.setPauseStrength(settings.pauseStrength);
     if (settings.usePauseCustom !== undefined) voiceSettings.setUsePauseCustom(settings.usePauseCustom);
@@ -121,6 +127,15 @@ function Workspace() {
     if (settings.emotion !== undefined) voiceSettings.setEmotion(settings.emotion);
     if (settings.globalEmphasis !== undefined) voiceSettings.handleEmphasisChange(settings.globalEmphasis);
   };
+
+  // The user's default preset is applied once, but only while nothing is generated (no audio is thrown away).
+  const presets = usePresets({
+    current: currentPresetSettings,
+    onApply: applyPreset,
+    autoApplyDefault: speechify.isLoaded && speechify.voices.length > 0 && speechify.generatedParagraphs.size === 0,
+  });
+
+  const emotionSupported = supportsEmotion(speechify.model);
 
   return (
     <div className="app">
@@ -189,7 +204,12 @@ function Workspace() {
                         isGenerating={speechify.generatingIndex === index}
                         isGenerated={speechify.generatedParagraphs.has(index)}
                         globalDefaults={voiceSettings.globalDefaults}
-                        currentEmotion={voiceSettings.emotion}
+                        defaultEmotion={voiceSettings.emotion}
+                        emotionSupported={emotionSupported}
+                        onSetEmotion={speechify.setParagraphEmotion}
+                        onApplyEmotionToRange={speechify.applyEmotionToRange}
+                        onClearEmotionRange={speechify.clearEmotionRange}
+                        onClearHighlights={speechify.clearHighlights}
                         isFirstParagraph={index === 0}
                         globalAudio={audioPlayer.getGlobalAudio}
                       />
@@ -203,15 +223,27 @@ function Workspace() {
           <RightPanel
             selectedLanguage={speechify.selectedLanguage}
             handleLanguageChange={speechify.handleLanguageChange}
-            selectedVoice={speechify.selectedVoice}
-            handleVoiceChange={speechify.handleVoiceChange}
+            voices={speechify.voices}
+            voice={speechify.selectedVoiceInfo}
+            onSelectVoice={(voice) => speechify.handleVoiceChange(voice.id)}
             isLoading={isLoading}
             isLoadingVoices={speechify.isLoadingVoices}
-            voices={speechify.voices}
+            model={speechify.model}
+            modelChoice={voiceSettings.modelChoice}
+            setModelChoice={voiceSettings.setModelChoice}
             emotion={voiceSettings.emotion}
             setEmotion={voiceSettings.setEmotion}
+            emotionSupported={emotionSupported}
             globalEmphasis={voiceSettings.globalEmphasis}
             handleEmphasisChange={voiceSettings.handleEmphasisChange}
+            globalDefaults={voiceSettings.globalDefaults}
+            updateGlobalDefaults={voiceSettings.updateGlobalDefaults}
+            pauseStrength={voiceSettings.pauseStrength}
+            setPauseStrength={voiceSettings.setPauseStrength}
+            usePauseCustom={voiceSettings.usePauseCustom}
+            setUsePauseCustom={voiceSettings.setUsePauseCustom}
+            pauseCustomTime={voiceSettings.pauseCustomTime}
+            setPauseCustomTime={voiceSettings.setPauseCustomTime}
             useFadeTransitions={voiceSettings.useFadeTransitions}
             setUseFadeTransitions={voiceSettings.setUseFadeTransitions}
             fadeInDuration={voiceSettings.fadeInDuration}
@@ -224,24 +256,7 @@ function Workspace() {
             setParagraphGapPause={voiceSettings.setParagraphGapPause}
             dictionary={dictionary}
             error={speechify.error}
-            voiceSettingsComponent={
-              <VoiceSettings
-                globalDefaults={voiceSettings.globalDefaults}
-                updateGlobalDefaults={voiceSettings.updateGlobalDefaults}
-                pauseStrength={voiceSettings.pauseStrength}
-                setPauseStrength={voiceSettings.setPauseStrength}
-                usePauseCustom={voiceSettings.usePauseCustom}
-                setUsePauseCustom={voiceSettings.setUsePauseCustom}
-                pauseCustomTime={voiceSettings.pauseCustomTime}
-                setPauseCustomTime={voiceSettings.setPauseCustomTime}
-              />
-            }
-            presetsComponent={
-              <Presets 
-                currentSettings={currentPresetSettings} 
-                onApplyPreset={applyPreset} 
-              />
-            }
+            presetsComponent={<PresetsPanel presets={presets} voices={speechify.voices} />}
           />
         </div>
 

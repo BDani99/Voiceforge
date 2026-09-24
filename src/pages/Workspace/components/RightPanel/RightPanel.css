@@ -301,3 +301,28 @@
   flex-shrink: 0;
 }
 
+
+/* --------------------------------------------- additions for the reworked panel */
+
+.rp-spaced {
+  margin-top: var(--space-md);
+}
+
+.rp-hint {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+.rp-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding-top: 8px;
+}
+
+.rp-range-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}

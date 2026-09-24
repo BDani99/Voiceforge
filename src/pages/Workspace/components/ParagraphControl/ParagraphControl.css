@@ -5,10 +5,15 @@
   border: 1px solid var(--border-light);
   border-radius: var(--radius-xl);
   transition: all var(--transition-base);
-  overflow: hidden;
+  /* Not hidden: the emotion dropdown must be able to extend beyond the box. */
+  position: relative;
   min-height: 180px;
   display: flex;
   flex-direction: column;
+}
+
+.paragraph-box:focus-within {
+  z-index: 20; /* keeps an open dropdown above the paragraphs below */
 }
 
 .paragraph-box:hover {
@@ -45,6 +50,7 @@
   border-bottom: 1px solid var(--border-light);
   min-height: 54px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .paragraph-info {
@@ -87,7 +93,8 @@
 .global-settings-display {
   display: flex;
   gap: var(--space-sm);
-  flex: 1;
+  flex: 1 1 160px;
+  min-width: 0;
   align-items: center;
   overflow-x: auto;
 }

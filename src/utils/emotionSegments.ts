@@ -28,7 +28,7 @@ export function normalizeSegments(segments: EmotionSegment[], textLength: number
       if (segment.end <= previous.end) continue;
       segment.start = previous.end;
     }
-    if (previous && previous.end === segment.start && previous.emotion === segment.emotion) {
+    if (previous?.end === segment.start && previous.emotion === segment.emotion) {
       previous.end = segment.end;
     } else {
       result.push(segment);

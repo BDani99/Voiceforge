@@ -85,7 +85,7 @@ describe('emotion segments', () => {
 
   it('ignores the whole-text emotion when segments exist (they exclude each other)', () => {
     const ssml = buildSSML('Hello brave world', { emotion: { enabled: true, type: 'calm' }, emotionSegments: segments });
-    expect(ssml.match(/speechify:style emotion="calm"/)).toBeNull();
+    expect(ssml).not.toMatch(/speechify:style emotion="calm"/);
     expect(ssml).toContain('emotion="angry"');
   });
 

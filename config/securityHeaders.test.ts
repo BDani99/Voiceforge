@@ -19,7 +19,8 @@ describe('buildContentSecurityPolicy', () => {
   });
 
   it('allows audio from blob URLs and the project storage only', () => {
-    expect(directive('media-src')).toBe("media-src 'self' blob: https://abc123.supabase.co");
+    expect(directive('media-src')).toBe("media-src 'self' blob: https://abc123.supabase.co https://vms.cdn.speechify.com");
+    expect(directive('img-src')).toBe("img-src 'self' data: blob: https://vms.cdn.speechify.com");
   });
 
   it('forbids plugins, foreign base URIs and framing', () => {

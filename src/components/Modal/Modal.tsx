@@ -8,10 +8,12 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  /** Width of the dialog: md (default), lg or xl. */
+  size?: 'md' | 'lg' | 'xl';
   children?: ReactNode;
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, size = 'md', children }: ModalProps) {
   const containerRef = useRef(null);
   const titleId = useId();
   useModalBehavior(isOpen, onClose, containerRef);
@@ -21,7 +23,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-container"
+        className={`modal-container modal-container--${size}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

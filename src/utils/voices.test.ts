@@ -10,8 +10,8 @@ import {
   resolveModel,
   supportsEmotion,
   tagLabel,
-  useCaseOptions,
-  useCases,
+  voiceUseCaseOptions,
+  voiceUseCases,
   voiceInitials,
   voicePreviewUrl,
   voicesForLanguage,
@@ -103,11 +103,11 @@ describe('labels', () => {
   it('humanises tags and extracts use cases', () => {
     expect(tagLabel('use-case:customer-service-ivr')).toBe('Customer service ivr');
     expect(tagLabel('plain')).toBe('Plain');
-    expect(useCases(alicia)).toEqual(['Audiobook', 'Podcast']);
+    expect(voiceUseCases(alicia)).toEqual(['Audiobook', 'Podcast']);
   });
 
   it('counts use cases across voices', () => {
-    expect(useCaseOptions(voices)[0]).toEqual({ value: 'use-case:audiobook', count: 2 });
+    expect(voiceUseCaseOptions(voices)[0]).toEqual({ value: 'use-case:audiobook', count: 2 });
   });
 
   it('builds initials for avatars', () => {

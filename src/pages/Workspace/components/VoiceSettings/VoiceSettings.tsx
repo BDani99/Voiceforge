@@ -1,199 +1,132 @@
-import { Sliders } from 'lucide-react';
-import Accordion from '../../../../components/Accordion/Accordion';
 import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
 import type { GlobalDefaults } from '../../../../types/models';
 import './VoiceSettings.css';
 
-interface VoiceSettingsProps {
-  globalDefaults: GlobalDefaults;
-  updateGlobalDefaults: <K extends keyof GlobalDefaults>(field: K, value: GlobalDefaults[K]) => void;
-  pauseStrength: string;
-  setPauseStrength: (value: string) => void;
-  usePauseCustom: boolean;
-  setUsePauseCustom: (value: boolean) => void;
-  pauseCustomTime: number;
-  setPauseCustomTime: (value: number) => void;
+type UpdateDefaults = <K extends keyof GlobalDefaults>(field: K, value: GlobalDefaults[K]) => void;
+
+interface Preset {
+  value: string;
+  label: string;
 }
 
-function VoiceSettings({
-  globalDefaults,
-  updateGlobalDefaults,
-  pauseStrength,
-  setPauseStrength,
-  usePauseCustom,
-  setUsePauseCustom,
-  pauseCustomTime,
-  setPauseCustomTime
-}: VoiceSettingsProps) {
+interface ProsodyControlProps {
+  label: string;
+  /** Which of pitch, rate, volume this control edits. */
+  kind: 'pitch' | 'rate' | 'volume';
+  globalDefaults: GlobalDefaults;
+  update: UpdateDefaults;
+  presets: Preset[];
+  min: number;
+  max: number;
+}
+
+const percent = (value: number): string => `${value >= 0 ? '+' : ''}${value}%`;
+
+/** One prosody setting: a preset list, or a custom percentage on a slider. */
+function ProsodyControl({ label, kind, globalDefaults, update, presets, min, max }: ProsodyControlProps) {
+  const customField = `${kind}Custom` as const;
+  const useCustomField = `use${kind[0]?.toUpperCase()}${kind.slice(1)}Custom` as 'usePitchCustom' | 'useRateCustom' | 'useVolumeCustom';
+  const useCustom = globalDefaults[useCustomField];
+  const customValue = globalDefaults[customField];
+
   return (
-    <Accordion title="Audio Settings" icon={Sliders} defaultOpen={true}>
-      <div className="global-defaults-controls">
-        <div className="global-control-group">
-          <label>Pitch</label>
-          <div className="control-with-custom">
-            {globalDefaults.usePitchCustom ? (
-              <div className="custom-range">
-                <div className="range-container">
-                  <input
-                    type="range"
-                    min="-50"
-                    max="50"
-                    value={globalDefaults.pitchCustom}
-                    onChange={(e) => updateGlobalDefaults('pitchCustom', parseInt(e.target.value))}
-                    className="global-range"
-                  />
-                  <span className="range-value">{globalDefaults.pitchCustom >= 0 ? '+' : ''}{globalDefaults.pitchCustom}%</span>
-                </div>
-              </div>
-            ) : (
-              <CustomSelect ariaLabel="Pitch preset"
-                value={globalDefaults.pitch}
-                onChange={(val) => updateGlobalDefaults('pitch', val)}
-                options={[
-                  { value: "x-low", label: "X-Low" },
-                  { value: "low", label: "Low" },
-                  { value: "medium", label: "Medium" },
-                  { value: "high", label: "High" },
-                  { value: "x-high", label: "X-High" }
-                ]}
+    <div className="pc">
+      <span className="pc__label">{label}</span>
+      <div className="pc__row">
+        <div className="pc__input">
+          {useCustom ? (
+            <div className="pc__slider">
+              <input
+                type="range"
+                min={min}
+                max={max}
+                value={customValue}
+                aria-label={`${label} in percent`}
+                onChange={(e) => update(customField, parseInt(e.target.value, 10))}
+                className="global-range"
               />
-            )}
-            <button
-              onClick={() => updateGlobalDefaults('usePitchCustom', !globalDefaults.usePitchCustom)}
-              className="custom-toggle-btn"
-              title={globalDefaults.usePitchCustom ? "Switch to preset" : "Switch to custom"} aria-label={globalDefaults.usePitchCustom ? "Switch to preset" : "Switch to custom"}
-            >
-              Custom %
-            </button>
-          </div>
+              <span className="range-value">{percent(customValue)}</span>
+            </div>
+          ) : (
+            <CustomSelect
+              ariaLabel={`${label} preset`}
+              value={globalDefaults[kind]}
+              onChange={(value) => update(kind, value)}
+              options={presets}
+            />
+          )}
         </div>
-
-        <div className="global-control-group">
-          <label>Speed</label>
-          <div className="control-with-custom">
-            {globalDefaults.useRateCustom ? (
-              <div className="custom-range">
-                <div className="range-container">
-                  <input
-                    type="range"
-                    min="-50"
-                    max="100"
-                    value={globalDefaults.rateCustom}
-                    onChange={(e) => updateGlobalDefaults('rateCustom', parseInt(e.target.value))}
-                    className="global-range"
-                  />
-                  <span className="range-value">{globalDefaults.rateCustom >= 0 ? '+' : ''}{globalDefaults.rateCustom}%</span>
-                </div>
-              </div>
-            ) : (
-              <CustomSelect ariaLabel="Speed preset"
-                value={globalDefaults.rate}
-                onChange={(val) => updateGlobalDefaults('rate', val)}
-                options={[
-                  { value: "x-slow", label: "X-Slow" },
-                  { value: "slow", label: "Slow" },
-                  { value: "medium", label: "Medium" },
-                  { value: "fast", label: "Fast" },
-                  { value: "x-fast", label: "X-Fast" }
-                ]}
-              />
-            )}
-            <button
-              onClick={() => updateGlobalDefaults('useRateCustom', !globalDefaults.useRateCustom)}
-              className="custom-toggle-btn"
-              title={globalDefaults.useRateCustom ? "Switch to preset" : "Switch to custom"} aria-label={globalDefaults.useRateCustom ? "Switch to preset" : "Switch to custom"}
-            >
-              Custom %
-            </button>
-          </div>
-        </div>
-
-        <div className="global-control-group">
-          <label>Volume</label>
-          <div className="control-with-custom">
-            {globalDefaults.useVolumeCustom ? (
-              <div className="custom-range">
-                <div className="range-container">
-                  <input
-                    type="range"
-                    min="-50"
-                    max="50"
-                    value={globalDefaults.volumeCustom}
-                    onChange={(e) => updateGlobalDefaults('volumeCustom', parseInt(e.target.value))}
-                    className="global-range"
-                  />
-                  <span className="range-value">{globalDefaults.volumeCustom >= 0 ? '+' : ''}{globalDefaults.volumeCustom}%</span>
-                </div>
-              </div>
-            ) : (
-              <CustomSelect ariaLabel="Volume preset"
-                value={globalDefaults.volume}
-                onChange={(val) => updateGlobalDefaults('volume', val)}
-                options={[
-                  { value: "silent", label: "Silent" },
-                  { value: "x-soft", label: "X-Soft" },
-                  { value: "soft", label: "Soft" },
-                  { value: "medium", label: "Medium" },
-                  { value: "loud", label: "Loud" },
-                  { value: "x-loud", label: "X-Loud" }
-                ]}
-              />
-            )}
-            <button
-              onClick={() => updateGlobalDefaults('useVolumeCustom', !globalDefaults.useVolumeCustom)}
-              className="custom-toggle-btn"
-              title={globalDefaults.useVolumeCustom ? "Switch to preset" : "Switch to custom"} aria-label={globalDefaults.useVolumeCustom ? "Switch to preset" : "Switch to custom"}
-            >
-              Custom %
-            </button>
-          </div>
-        </div>
-
-        <div className="global-control-group">
-          <label>Sentence Pauses</label>
-          <div className="control-with-custom">
-            {usePauseCustom ? (
-              <div className="custom-range">
-                <div className="range-container">
-                  <input
-                    type="range"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={pauseCustomTime}
-                    onChange={(e) => setPauseCustomTime(parseInt(e.target.value))}
-                    className="global-range"
-                  />
-                  <span className="range-value">{pauseCustomTime}ms</span>
-                </div>
-              </div>
-            ) : (
-              <CustomSelect ariaLabel="Sentence pause strength"
-                value={pauseStrength}
-                onChange={(val) => setPauseStrength(val)}
-                options={[
-                  { value: "none", label: "None" },
-                  { value: "x-weak", label: "X-Weak" },
-                  { value: "weak", label: "Weak" },
-                  { value: "medium", label: "Medium" },
-                  { value: "strong", label: "Strong" },
-                  { value: "x-strong", label: "X-Strong" }
-                ]}
-              />
-            )}
-            <button
-              onClick={() => setUsePauseCustom(!usePauseCustom)}
-              className="custom-toggle-btn"
-              title={usePauseCustom ? "Switch to preset" : "Switch to custom"} aria-label={usePauseCustom ? "Switch to preset" : "Switch to custom"}
-            >
-              Custom ms
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          className={`pc__toggle${useCustom ? ' is-active' : ''}`}
+          aria-pressed={useCustom}
+          title={useCustom ? 'Switch to a preset' : 'Set a custom percentage'}
+          onClick={() => update(useCustomField, !useCustom)}
+        >
+          Custom %
+        </button>
       </div>
-    </Accordion>
+    </div>
   );
 }
 
+interface VoiceSettingsProps {
+  globalDefaults: GlobalDefaults;
+  updateGlobalDefaults: UpdateDefaults;
+}
+
+/** Pitch, speed and volume, stacked under the voice card. */
+function VoiceSettings({ globalDefaults, updateGlobalDefaults }: VoiceSettingsProps) {
+  return (
+    <div className="pc-list">
+      <ProsodyControl
+        label="Pitch"
+        kind="pitch"
+        globalDefaults={globalDefaults}
+        update={updateGlobalDefaults}
+        min={-50}
+        max={50}
+        presets={[
+          { value: 'x-low', label: 'X-Low' },
+          { value: 'low', label: 'Low' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'high', label: 'High' },
+          { value: 'x-high', label: 'X-High' },
+        ]}
+      />
+      <ProsodyControl
+        label="Speed"
+        kind="rate"
+        globalDefaults={globalDefaults}
+        update={updateGlobalDefaults}
+        min={-50}
+        max={100}
+        presets={[
+          { value: 'x-slow', label: 'X-Slow' },
+          { value: 'slow', label: 'Slow' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'fast', label: 'Fast' },
+          { value: 'x-fast', label: 'X-Fast' },
+        ]}
+      />
+      <ProsodyControl
+        label="Volume"
+        kind="volume"
+        globalDefaults={globalDefaults}
+        update={updateGlobalDefaults}
+        min={-50}
+        max={50}
+        presets={[
+          { value: 'silent', label: 'Silent' },
+          { value: 'x-soft', label: 'X-Soft' },
+          { value: 'soft', label: 'Soft' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'loud', label: 'Loud' },
+          { value: 'x-loud', label: 'X-Loud' },
+        ]}
+      />
+    </div>
+  );
+}
 
 export default VoiceSettings;

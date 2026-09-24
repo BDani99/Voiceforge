@@ -3,6 +3,8 @@
  * itself, the configured Supabase project and the breached-password check.
  */
 
+const SPEECHIFY_CDN = 'https://vms.cdn.speechify.com';
+
 export function buildContentSecurityPolicy(supabaseUrl: string, { forHeader = true } = {}): string {
   const supabase = new URL(supabaseUrl);
 
@@ -11,9 +13,10 @@ export function buildContentSecurityPolicy(supabaseUrl: string, { forHeader = tr
     "script-src 'self'",
     // React style props and the styles injected by the toast/chart libraries need inline styles.
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // Voice pictures and sample recordings come from Speechify's CDN.
+    `img-src 'self' data: blob: ${SPEECHIFY_CDN}`,
     "font-src 'self' data:",
-    `media-src 'self' blob: ${supabase.origin}`,
+    `media-src 'self' blob: ${supabase.origin} ${SPEECHIFY_CDN}`,
     // https://api.pwnedpasswords.com: breached-password check (k-anonymity, no password leaves the browser)
     `connect-src 'self' ${supabase.origin} wss://${supabase.host} https://api.pwnedpasswords.com`,
     "object-src 'none'",

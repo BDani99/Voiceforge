@@ -1,26 +1,47 @@
-import { useMemo, useState, useEffect, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Volume2, Settings2, X, BookOpen } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, EMOTION_OPTIONS, EMPHASIS_OPTIONS } from '../../../../constants/voiceConstants';
 import Dictionary from '../Dictionary/Dictionary';
 import Accordion from '../../../../components/Accordion/Accordion';
 import Modal from '../../../../components/Modal/Modal';
 import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
+import { usePreviewPlayer } from '../../../../hooks/usePreviewPlayer';
 import type { DictionaryApi } from '../../../../hooks/useDictionary';
-import type { Voice } from '../../../../types/models';
+import type { GlobalDefaults, Voice } from '../../../../types/models';
+import VoiceCard from '../VoicePicker/VoiceCard';
+import VoicePickerModal from '../VoicePicker/VoicePickerModal';
+import VoiceSettings from '../VoiceSettings/VoiceSettings';
+import PauseSettings from '../VoiceSettings/PauseSettings';
+import ModelSelector from '../ModelSelector/ModelSelector';
 import './RightPanel.css';
 
 interface RightPanelProps {
   selectedLanguage: string;
   handleLanguageChange: (language: string) => void;
-  selectedVoice: string;
-  handleVoiceChange: (voiceId: string) => void;
+  voices: Voice[];
+  /** The selected voice (undefined until the list has loaded). */
+  voice: Voice | undefined;
+  onSelectVoice: (voice: Voice) => void;
   isLoading: boolean;
   isLoadingVoices: boolean;
-  voices: Voice[];
+  /** Model that is really used, and the user's choice ("auto" or a model name). */
+  model: string;
+  modelChoice: string;
+  setModelChoice: (choice: string) => void;
   emotion: string;
   setEmotion: (emotion: string) => void;
+  /** False for models without emotion support. */
+  emotionSupported: boolean;
   globalEmphasis: string;
   handleEmphasisChange: (emphasis: string) => void;
+  globalDefaults: GlobalDefaults;
+  updateGlobalDefaults: <K extends keyof GlobalDefaults>(field: K, value: GlobalDefaults[K]) => void;
+  pauseStrength: string;
+  setPauseStrength: (value: string) => void;
+  usePauseCustom: boolean;
+  setUsePauseCustom: (value: boolean) => void;
+  pauseCustomTime: number;
+  setPauseCustomTime: (value: number) => void;
   useFadeTransitions: boolean;
   setUseFadeTransitions: (enabled: boolean) => void;
   fadeInDuration: number;
@@ -33,22 +54,33 @@ interface RightPanelProps {
   setParagraphGapPause: (ms: number) => void;
   dictionary: DictionaryApi;
   error?: string;
-  voiceSettingsComponent?: ReactNode;
   presetsComponent?: ReactNode;
 }
 
 function RightPanel({
   selectedLanguage,
   handleLanguageChange,
-  selectedVoice,
-  handleVoiceChange,
+  voices,
+  voice,
+  onSelectVoice,
   isLoading,
   isLoadingVoices,
-  voices,
+  model,
+  modelChoice,
+  setModelChoice,
   emotion,
   setEmotion,
+  emotionSupported,
   globalEmphasis,
   handleEmphasisChange,
+  globalDefaults,
+  updateGlobalDefaults,
+  pauseStrength,
+  setPauseStrength,
+  usePauseCustom,
+  setUsePauseCustom,
+  pauseCustomTime,
+  setPauseCustomTime,
   useFadeTransitions,
   setUseFadeTransitions,
   fadeInDuration,
@@ -61,44 +93,19 @@ function RightPanel({
   setParagraphGapPause,
   dictionary,
   error,
-  voiceSettingsComponent,
-  presetsComponent
+  presetsComponent,
 }: RightPanelProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [selectedGender, setSelectedGender] = useState('');
-
-  // Reset gender filter when language changes
-  useEffect(() => {
-    setSelectedGender('');
-  }, [selectedLanguage]);
-
-  const baseVoices = useMemo(() => {
-    const exactMatches = voices.filter(v => v.locale === selectedLanguage);
-    if (exactMatches.length > 0) return exactMatches;
-    return voices.filter(v => v.locale === 'en-US' || v.locale === 'en-GB' || !v.locale);
-  }, [voices, selectedLanguage]);
-
-  const filteredVoices = useMemo(() => {
-    if (!selectedGender) return baseVoices;
-    const genderFiltered = baseVoices.filter(v => v.gender?.toLowerCase() === selectedGender);
-    return genderFiltered.length > 0 ? genderFiltered : baseVoices;
-  }, [baseVoices, selectedGender]);
-
-  // Auto-select first voice when filter narrows list and current voice is no longer available
-  useEffect(() => {
-    const [first] = filteredVoices;
-    if (first && !filteredVoices.some(v => v.id === selectedVoice)) {
-      handleVoiceChange(first.id);
-    }
-  }, [filteredVoices, selectedVoice, handleVoiceChange]);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const player = usePreviewPlayer();
 
   return (
     <div className="right-panel">
-      {/* Voice & Language Accordion */}
       <Accordion title="Voice & Language" icon={Volume2} defaultOpen={true}>
         <div className="setting-group">
-          <label htmlFor="language-select">Language</label>
-          <CustomSelect ariaLabel="Language"
+          <label id="language-label">Language</label>
+          <CustomSelect
+            ariaLabel="Language"
             value={selectedLanguage}
             onChange={(val) => handleLanguageChange(val)}
             disabled={isLoading}
@@ -107,70 +114,66 @@ function RightPanel({
         </div>
 
         <div className="setting-group">
-          <label>Gender</label>
-          <CustomSelect ariaLabel="Gender"
-            value={selectedGender}
-            onChange={(val) => setSelectedGender(val)}
+          <label>Voice</label>
+          <VoiceCard
+            voice={voice}
+            language={selectedLanguage}
+            model={model}
+            isLoading={isLoadingVoices}
             disabled={isLoading}
-            options={[
-              { value: '', label: 'All' },
-              { value: 'male', label: 'Male' },
-              { value: 'female', label: 'Female' },
-            ]}
+            player={player}
+            onOpen={() => setIsPickerOpen(true)}
+          />
+        </div>
+
+        <VoiceSettings globalDefaults={globalDefaults} updateGlobalDefaults={updateGlobalDefaults} />
+
+        <div className="setting-group rp-spaced">
+          <label>Model</label>
+          <ModelSelector
+            voice={voice}
+            language={selectedLanguage}
+            choice={modelChoice}
+            resolved={model}
+            onChange={setModelChoice}
+            disabled={isLoading}
           />
         </div>
 
         <div className="setting-group">
-          <label htmlFor="voice-select">Voice</label>
-          <CustomSelect ariaLabel="Voice"
-            value={selectedVoice}
-            onChange={(val) => handleVoiceChange(val)}
-            disabled={isLoadingVoices || isLoading}
-            placeholder={isLoadingVoices ? "Loading voices..." : filteredVoices.length === 0 ? "No voices available" : "Select a voice"}
-            options={filteredVoices.map((voice) => ({
-              value: voice.id,
-              label: `${voice.display_name || voice.name}${voice.gender ? ` • ${voice.gender}` : ''}`
-            }))}
-          />
-        </div>
-
-        <div className="setting-group">
-          <label htmlFor="emotion-select">Emotion</label>
-          <CustomSelect ariaLabel="Emotion"
+          <label>Emotion for all paragraphs</label>
+          <CustomSelect
+            ariaLabel="Emotion for all paragraphs"
             value={emotion}
             onChange={(val) => setEmotion(val)}
+            disabled={!emotionSupported}
             options={[
-              { value: "", label: "None" },
-              ...EMOTION_OPTIONS.map((emo) => ({
-                value: emo.value,
-                label: `${emo.icon} ${emo.label}`
-              }))
+              { value: '', label: 'None' },
+              ...EMOTION_OPTIONS.map((emo) => ({ value: emo.value, label: `${emo.icon} ${emo.label}` })),
             ]}
           />
+          <p className="rp-hint">
+            {emotionSupported
+              ? 'A single paragraph can use its own emotion, or highlighted parts, instead.'
+              : 'The selected model does not support emotions. Choose Simba 3.2 or 3.0 to use them.'}
+          </p>
         </div>
 
         <div className="setting-group">
-          <label htmlFor="global-emphasis">Global Emphasis</label>
-          <CustomSelect ariaLabel="Global emphasis"
+          <label>Global Emphasis</label>
+          <CustomSelect
+            ariaLabel="Global emphasis"
             value={globalEmphasis}
             onChange={(val) => handleEmphasisChange(val)}
+            disabled={!emotionSupported}
             options={[
-              { value: "", label: "None" },
+              { value: '', label: 'None' },
               ...EMPHASIS_OPTIONS.map((option) => ({
                 value: option,
-                label: option.charAt(0).toUpperCase() + option.slice(1)
-              }))
+                label: option.charAt(0).toUpperCase() + option.slice(1),
+              })),
             ]}
           />
-        </div>
-
-        <div className="model-info" style={{ marginTop: '16px' }}>
-          <p>
-            <strong>Model:</strong> {selectedLanguage.startsWith('en') ? 'simba-english' : 'simba-multilingual'}
-          </p>
-          <p className="model-description">
-            Optimized for {selectedLanguage.startsWith('en') ? 'English' : 'Multilingual'} synthesis
-          </p>
         </div>
 
         {error && (
@@ -181,100 +184,106 @@ function RightPanel({
         )}
       </Accordion>
 
+      {presetsComponent}
+
       <button className="open-settings-btn" onClick={() => setIsSettingsOpen(true)}>
         <Settings2 size={18} /> Advanced Audio Settings
       </button>
 
-      {/* Voice Presets */}
-      {presetsComponent}
+      <VoicePickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        voices={voices}
+        selectedVoiceId={voice?.id ?? ''}
+        language={selectedLanguage}
+        player={player}
+        onSelect={onSelectVoice}
+      />
 
-      {/* Advanced Settings Modal */}
-      <Modal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)}
-        title="Advanced Audio Settings"
-      >
+      <Modal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} title="Advanced Audio Settings">
         <div className="modal-settings-grid">
           <div className="modal-settings-column">
-            {voiceSettingsComponent}
-          </div>
-          <div className="modal-settings-column">
             <Accordion title="Transitions & Pauses" icon={Settings2} defaultOpen={true}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--space-xl)', paddingTop: '8px', alignItems: 'center' }}>
-                <div className="setting-group">
-                  <div className="transition-controls">
-                    <label className="checkbox-container" style={{ marginBottom: '12px' }}>
-                      <input
-                        type="checkbox"
-                        checked={useFadeTransitions}
-                        onChange={(e) => setUseFadeTransitions(e.target.checked)}
-                      />
-                      <span style={{ fontSize: '0.85rem', marginLeft: '6px' }}>
-                        Enable fade transitions
-                      </span>
-                    </label>
-                    {useFadeTransitions && (
-                      <div style={{ marginTop: '8px' }}>
-                        <div className="range-container" style={{ marginBottom: '12px' }}>
-                          <label style={{ fontSize: '0.8rem', textTransform: 'none' }}>Fade In: {fadeInDuration}ms</label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="500"
-                            step="10"
-                            value={fadeInDuration}
-                            onChange={(e) => setFadeInDuration(parseInt(e.target.value))}
-                            className="global-range"
-                          />
-                        </div>
-                        <div className="range-container">
-                          <label style={{ fontSize: '0.8rem', textTransform: 'none' }}>Fade Out: {fadeOutDuration}ms</label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="500"
-                            step="10"
-                            value={fadeOutDuration}
-                            onChange={(e) => setFadeOutDuration(parseInt(e.target.value))}
-                            className="global-range"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div className="rp-advanced">
+                <PauseSettings
+                  pauseStrength={pauseStrength}
+                  setPauseStrength={setPauseStrength}
+                  usePauseCustom={usePauseCustom}
+                  setUsePauseCustom={setUsePauseCustom}
+                  pauseCustomTime={pauseCustomTime}
+                  setPauseCustomTime={setPauseCustomTime}
+                />
 
                 <div className="setting-group">
-                  <div className="paragraph-gap-control">
-                    <label className="checkbox-container" style={{ marginBottom: '12px' }}>
-                      <input
-                        type="checkbox"
-                        checked={useParagraphGap}
-                        onChange={(e) => setUseParagraphGap(e.target.checked)}
-                      />
-                      <span style={{ fontSize: '0.85rem', marginLeft: '6px' }}>
-                        Pause between paragraphs
-                      </span>
-                    </label>
-                    {useParagraphGap && (
-                      <div className="range-container">
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={useFadeTransitions}
+                      onChange={(e) => setUseFadeTransitions(e.target.checked)}
+                    />
+                    <span style={{ fontSize: '0.85rem', marginLeft: '6px' }}>Enable fade transitions</span>
+                  </label>
+                  {useFadeTransitions && (
+                    <div style={{ marginTop: '8px' }}>
+                      <div className="range-container" style={{ marginBottom: '12px' }}>
+                        <span className="rp-range-label">Fade In: {fadeInDuration}ms</span>
                         <input
                           type="range"
                           min="0"
-                          max="5000"
-                          step="100"
-                          value={paragraphGapPause}
-                          onChange={(e) => setParagraphGapPause(parseInt(e.target.value))}
+                          max="500"
+                          step="10"
+                          value={fadeInDuration}
+                          aria-label="Fade in in milliseconds"
+                          onChange={(e) => setFadeInDuration(parseInt(e.target.value))}
                           className="global-range"
                         />
-                        <span className="range-value">{paragraphGapPause}ms</span>
                       </div>
-                    )}
-                  </div>
+                      <div className="range-container">
+                        <span className="rp-range-label">Fade Out: {fadeOutDuration}ms</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="500"
+                          step="10"
+                          value={fadeOutDuration}
+                          aria-label="Fade out in milliseconds"
+                          onChange={(e) => setFadeOutDuration(parseInt(e.target.value))}
+                          className="global-range"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="setting-group">
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={useParagraphGap}
+                      onChange={(e) => setUseParagraphGap(e.target.checked)}
+                    />
+                    <span style={{ fontSize: '0.85rem', marginLeft: '6px' }}>Pause between paragraphs</span>
+                  </label>
+                  {useParagraphGap && (
+                    <div className="range-container">
+                      <input
+                        type="range"
+                        min="0"
+                        max="5000"
+                        step="100"
+                        value={paragraphGapPause}
+                        aria-label="Pause between paragraphs in milliseconds"
+                        onChange={(e) => setParagraphGapPause(parseInt(e.target.value))}
+                        className="global-range"
+                      />
+                      <span className="range-value">{paragraphGapPause}ms</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </Accordion>
-
+          </div>
+          <div className="modal-settings-column">
             <Accordion title="Dictionary" icon={BookOpen} defaultOpen={true}>
               <div style={{ paddingTop: '8px' }}>
                 <Dictionary dictionary={dictionary} />
@@ -286,6 +295,5 @@ function RightPanel({
     </div>
   );
 }
-
 
 export default RightPanel;
