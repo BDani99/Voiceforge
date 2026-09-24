@@ -147,23 +147,29 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_default: boolean
           name: string
           settings: Json
-          user_id: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
+          is_default?: boolean
           name: string
           settings: Json
-          user_id?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
+          is_default?: boolean
           name?: string
           settings?: Json
-          user_id?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -324,6 +330,7 @@ export type Database = {
         Args: { p_amount: number; p_max_per_minute?: number; p_user_id: string }
         Returns: string
       }
+      set_default_preset: { Args: { p_preset_id: string }; Returns: undefined }
       settle_credits: { Args: { p_reservation_id: string }; Returns: boolean }
     }
     Enums: {

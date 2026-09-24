@@ -36,6 +36,8 @@ const paragraph = (id: string, text: string, audioBlob: Blob | null = new Blob([
   audioUrl: null,
   isGenerated: !!audioBlob,
   wasCached: false,
+  emotion: '',
+  segments: [],
 });
 
 interface Setup {

@@ -4,6 +4,9 @@ import { supabase } from '../services/supabase';
 import { findCachedAudio, storeAudio, fetchAudioBlob, getAudioHash } from '../services/audioStorage';
 import { applyFade } from '../utils/audioProcessing';
 import { notify, getErrorMessage } from '../utils/notificationService';
+import { addSegment, clearRange, rebaseSegments } from '../utils/emotionSegments';
+import { effectiveParagraphEmotion, emotionMode, parseParagraphSettings, serializeParagraphSettings } from '../utils/paragraphEmotion';
+import { resolveModel, voicesForLanguage } from '../utils/voices';
 import type { VoiceSettings } from './useVoiceSettings';
 import type { Paragraph, SsmlOptions, Voice } from '../types/models';
 
@@ -16,15 +19,21 @@ const newParagraph = (text = ''): Paragraph => ({
   audioUrl: null,
   isGenerated: false,
   wasCached: false,
+  emotion: '',
+  segments: [],
 });
 
 const STALE_AUDIO: Partial<Paragraph> = { audioBlob: null, audioUrl: null, isGenerated: false, wasCached: false };
 
 const percent = (value: number): string => `${value >= 0 ? '+' : ''}${value}%`;
 
-/** Translates the UI settings into the option object understood by buildSSML. */
-function buildSsmlOptions(settings: VoiceSettings, { preview = false } = {}): SsmlOptions {
+/**
+ * Translates the UI settings into the option object understood by buildSSML. With a paragraph its own
+ * emotion settings apply; a preview only uses the default emotion of all paragraphs.
+ */
+function buildSsmlOptions(settings: VoiceSettings, { preview = false, paragraph }: { preview?: boolean; paragraph?: Paragraph } = {}): SsmlOptions {
   const { globalDefaults: d } = settings;
+  const emotion = paragraph && !preview ? effectiveParagraphEmotion(paragraph, settings.emotion) : settings.emotion || null;
 
   return {
     prosody: {
@@ -43,9 +52,8 @@ function buildSsmlOptions(settings: VoiceSettings, { preview = false } = {}): Ss
     emphasis: settings.globalEmphasis
       ? { enabled: true, level: settings.globalEmphasis }
       : { enabled: false },
-    emotion: settings.emotion
-      ? { enabled: true, type: settings.emotion }
-      : { enabled: false },
+    emotion: emotion ? { enabled: true, type: emotion } : { enabled: false },
+    emotionSegments: paragraph && !preview ? paragraph.segments : [],
     customReplacements: settings.parseCustomReplacements(settings.globalCustomReplacements),
     addSilencePadding: preview ? false : settings.useFadeTransitions,
     silenceDuration: 50,
@@ -113,6 +121,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
           audioBlob: null,
           isGenerated: !!p.audio_url,
           wasCached: !!p.audio_url,
+          ...parseParagraphSettings(p.settings, p.content.length),
         })));
       }
       hasUnsavedChangesRef.current = false;
@@ -159,7 +168,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
           content: p.text,
           order_index: index,
           audio_url: p.audioUrl || null,
-          settings: {},
+          settings: serializeParagraphSettings(p),
         }));
 
         const { error: upsertError } = await supabase.from('paragraphs').upsert(rows);
@@ -198,6 +207,14 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
 
   // ---------------------------------------------------- settings invalidation
 
+  const selectedVoiceInfo = useMemo(() => voices.find((v) => v.id === selectedVoice), [voices, selectedVoice]);
+  // The model that is really used. Only the user's choice (not this derived value) invalidates audio,
+  // because changing voice or language already does that explicitly.
+  const model = useMemo(
+    () => resolveModel(selectedVoiceInfo, selectedLanguage, settings.modelChoice),
+    [selectedVoiceInfo, selectedLanguage, settings.modelChoice],
+  );
+
   const invalidateAllAudio = useCallback(() => {
     if (!isInitializedRef.current || !isLoadedRef.current) return;
 
@@ -217,7 +234,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
 
   const handleLanguageChange = useCallback((langCode: string) => {
     setSelectedLanguage(langCode);
-    const voiceForLang = voices.find((v) => v.locale === langCode);
+    const [voiceForLang] = voicesForLanguage(voices, langCode).filter((v) => v.locale === langCode);
     if (voiceForLang) setSelectedVoice(voiceForLang.id);
     invalidateAllAudio();
   }, [voices, invalidateAllAudio]);
@@ -245,6 +262,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     settings.pauseCustomTime,
     settings.emotion,
     settings.globalEmphasis,
+    settings.modelChoice,
     settings.useFadeTransitions,
     settings.fadeInDuration,
     settings.fadeOutDuration,
@@ -280,9 +298,38 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
   }, []);
 
   const updateParagraphText = useCallback((index: number, text: string) => {
-    // Editing the text makes any stored audio stale.
-    setParagraphs((prev) => prev.map((p, i) => (i === index ? { ...p, text, ...STALE_AUDIO } : p)));
+    // Editing the text makes any stored audio stale; highlighted emotions move along with the words.
+    setParagraphs((prev) => prev.map((p, i) => (
+      i === index ? { ...p, text, segments: rebaseSegments(p.segments, p.text, text), ...STALE_AUDIO } : p
+    )));
   }, []);
+
+  const editParagraph = useCallback((index: number, edit: (paragraph: Paragraph) => Paragraph) => {
+    setParagraphs((prev) => prev.map((p, i) => (i === index ? { ...edit(p), ...STALE_AUDIO } : p)));
+  }, []);
+
+  /** Emotion of the whole paragraph. Ignored while highlighted parts exist (the two exclude each other). */
+  const setParagraphEmotion = useCallback((index: number, emotion: string) => {
+    setParagraphs((prev) => prev.map((p, i) => (
+      i === index && emotionMode(p) !== 'highlights' ? { ...p, emotion, ...STALE_AUDIO } : p
+    )));
+  }, []);
+
+  /** Emotion for a highlighted part. Ignored while the paragraph has its own emotion. */
+  const applyEmotionToRange = useCallback((index: number, start: number, end: number, emotion: string) => {
+    setParagraphs((prev) => prev.map((p, i) => {
+      if (i !== index || emotionMode(p) === 'paragraph') return p;
+      return { ...p, emotion: '', segments: addSegment(p.segments, { start, end, emotion }, p.text.length), ...STALE_AUDIO };
+    }));
+  }, []);
+
+  const clearEmotionRange = useCallback((index: number, start: number, end: number) => {
+    editParagraph(index, (p) => ({ ...p, segments: clearRange(p.segments, start, end, p.text.length) }));
+  }, [editParagraph]);
+
+  const clearHighlights = useCallback((index: number) => {
+    editParagraph(index, (p) => ({ ...p, segments: [] }));
+  }, [editParagraph]);
 
   const deleteParagraph = useCallback((index: number) => {
     setParagraphs((prev) => {
@@ -312,11 +359,12 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     if (!paragraph) throw new Error('Paragraph not found');
     const { id } = paragraph;
 
-    const ssmlOptions = buildSsmlOptions(settings);
+    const ssmlOptions = buildSsmlOptions(settings, { paragraph });
     const hashKey = await getAudioHash({
       text: paragraph.text,
       voice: selectedVoice,
       language: selectedLanguage,
+      model,
       ssmlOptions,
       fade: settings.useFadeTransitions
         ? [settings.fadeInDuration, settings.fadeOutDuration]
@@ -342,7 +390,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
       selectedVoice,
       selectedLanguage,
       ssmlOptions,
-      { forceRegenerate, action: 'generation', projectId },
+      { forceRegenerate, action: 'generation', projectId, model },
     );
 
     if (settings.useFadeTransitions) {
@@ -356,7 +404,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     const audioUrl = await storeAudio(hashKey, audioBlob);
     patchParagraph(id, { audioBlob, audioUrl, isGenerated: true, wasCached: false });
     return audioBlob;
-  }, [paragraphs, selectedVoice, selectedLanguage, settings, projectId, patchParagraph]);
+  }, [paragraphs, selectedVoice, selectedLanguage, model, settings, projectId, patchParagraph]);
 
   const generateParagraphAudio = useCallback(async (index: number, forceRegenerate = false): Promise<Blob | null> => {
     const paragraph = paragraphs[index];
@@ -405,7 +453,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
         selectedVoice,
         selectedLanguage,
         buildSsmlOptions(settings, { preview: true }),
-        { action: 'preview', projectId },
+        { action: 'preview', projectId, model },
       );
 
       const objectUrl = URL.createObjectURL(audioBlob);
@@ -418,12 +466,14 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
       console.error('Preview error:', err);
       notify.error(err, 'Preview failed');
     }
-  }, [selectedVoice, selectedLanguage, settings, projectId]);
+  }, [selectedVoice, selectedLanguage, model, settings, projectId]);
 
   return {
     voices,
     selectedVoice,
+    selectedVoiceInfo,
     selectedLanguage,
+    model,
     isLoadingVoices,
     error,
     setError,
@@ -434,6 +484,10 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     handleLanguageChange,
     handleSplitText,
     updateParagraphText,
+    setParagraphEmotion,
+    applyEmotionToRange,
+    clearEmotionRange,
+    clearHighlights,
     deleteParagraph,
     addParagraphAtStart,
     generateParagraphAudio,

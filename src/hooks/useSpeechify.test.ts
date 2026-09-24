@@ -34,7 +34,7 @@ vi.mock('../utils/notificationService', async (importOriginal) => ({
 }));
 
 const PROJECT = '11111111-1111-1111-1111-111111111111';
-const row = (id: string, content: string, audio_url: string | null = null) => ({
+const row = (id: string, content: string, audio_url: string | null = null): { id: string; content: string; audio_url: string | null; order_index: number; project_id: string; settings: Record<string, unknown> } => ({
   id,
   content,
   audio_url,
@@ -221,7 +221,7 @@ describe('generation', () => {
     expect(blob).toBeInstanceOf(Blob);
     expect(mocks.synthesize).toHaveBeenCalledWith(
       'First', 'henry', 'en-US', expect.any(Object),
-      { forceRegenerate: false, action: 'generation', projectId: PROJECT },
+      { forceRegenerate: false, action: 'generation', projectId: PROJECT, model: 'simba-3.2' },
     );
     expect(mocks.applyFade).toHaveBeenCalled();
     expect(mocks.storeAudio).toHaveBeenCalled();
@@ -327,6 +327,127 @@ describe('generation', () => {
 
     const generated = result.current.speechify.paragraphs.filter((p) => p.isGenerated).map((p) => p.text);
     expect(generated).toEqual(['Second']);
+  });
+});
+
+describe('emotion', () => {
+  const optionsOfLastCall = () => mocks.synthesize.mock.calls[mocks.synthesize.mock.calls.length - 1]?.[3] as {
+    emotion?: { enabled?: boolean; type?: string };
+    emotionSegments?: { start: number; end: number; emotion: string }[];
+  };
+
+  it('uses the default emotion of all paragraphs unless the paragraph has its own', async () => {
+    const { result } = await setup([row('p1', 'First'), row('p2', 'Second')]);
+    act(() => result.current.settings.setEmotion('warm'));
+    await waitFor(() => expect(result.current.settings.emotion).toBe('warm'));
+
+    await act(async () => { await result.current.speechify.generateParagraphAudio(0); });
+    expect(optionsOfLastCall().emotion).toEqual({ enabled: true, type: 'warm' });
+
+    act(() => result.current.speechify.setParagraphEmotion(1, 'sad'));
+    await act(async () => { await result.current.speechify.generateParagraphAudio(1); });
+    expect(optionsOfLastCall().emotion).toEqual({ enabled: true, type: 'sad' });
+
+    act(() => result.current.speechify.setParagraphEmotion(1, 'none'));
+    await act(async () => { await result.current.speechify.generateParagraphAudio(1, true); });
+    expect(optionsOfLastCall().emotion).toEqual({ enabled: false });
+  });
+
+  it('highlighted emotions replace the whole-paragraph emotion and are sent with the text', async () => {
+    const { result } = await setup([row('p1', 'Hello brave world')]);
+    act(() => result.current.settings.setEmotion('warm'));
+
+    act(() => result.current.speechify.applyEmotionToRange(0, 6, 11, 'angry'));
+    expect(result.current.speechify.paragraphs[0]).toMatchObject({ emotion: '', segments: [{ start: 6, end: 11, emotion: 'angry' }] });
+
+    await act(async () => { await result.current.speechify.generateParagraphAudio(0); });
+    expect(optionsOfLastCall().emotion).toEqual({ enabled: false }); // the default emotion does not wrap highlighted text
+    expect(optionsOfLastCall().emotionSegments).toEqual([{ start: 6, end: 11, emotion: 'angry' }]);
+  });
+
+  it('a paragraph emotion and highlights exclude each other', async () => {
+    const { result } = await setup([row('p1', 'Hello brave world')]);
+
+    act(() => result.current.speechify.setParagraphEmotion(0, 'sad'));
+    act(() => result.current.speechify.applyEmotionToRange(0, 0, 5, 'angry')); // blocked
+    expect(result.current.speechify.paragraphs[0]).toMatchObject({ emotion: 'sad', segments: [] });
+
+    act(() => result.current.speechify.setParagraphEmotion(0, ''));
+    act(() => result.current.speechify.applyEmotionToRange(0, 0, 5, 'angry'));
+    act(() => result.current.speechify.setParagraphEmotion(0, 'sad')); // blocked while highlights exist
+    expect(result.current.speechify.paragraphs[0]).toMatchObject({ emotion: '', segments: [{ start: 0, end: 5, emotion: 'angry' }] });
+
+    act(() => result.current.speechify.clearHighlights(0));
+    act(() => result.current.speechify.setParagraphEmotion(0, 'sad'));
+    expect(result.current.speechify.paragraphs[0]).toMatchObject({ emotion: 'sad', segments: [] });
+  });
+
+  it('clears the emotion of a highlighted range and keeps the rest', async () => {
+    const { result } = await setup([row('p1', 'Hello brave new world')]);
+    act(() => result.current.speechify.applyEmotionToRange(0, 0, 15, 'angry'));
+    act(() => result.current.speechify.clearEmotionRange(0, 6, 11));
+    expect(result.current.speechify.paragraphs[0]?.segments).toEqual([
+      { start: 0, end: 6, emotion: 'angry' },
+      { start: 11, end: 15, emotion: 'angry' },
+    ]);
+  });
+
+  it('moves highlights along with edits of the text', async () => {
+    const { result } = await setup([row('p1', 'Hello brave world')]);
+    act(() => result.current.speechify.applyEmotionToRange(0, 6, 11, 'angry'));
+    act(() => result.current.speechify.updateParagraphText(0, 'Oh, Hello brave world'));
+    expect(result.current.speechify.paragraphs[0]?.segments).toEqual([{ start: 10, end: 15, emotion: 'angry' }]);
+  });
+
+  it('only discards the audio of the paragraph whose emotion changed', async () => {
+    const { result } = await setup([row('p1', 'First', 'https://cdn.example/1.wav'), row('p2', 'Second', 'https://cdn.example/2.wav')]);
+    act(() => result.current.speechify.setParagraphEmotion(0, 'sad'));
+    expect(result.current.speechify.paragraphs.map((p) => p.isGenerated)).toEqual([false, true]);
+  });
+
+  it('saves and restores the emotion settings of a paragraph', async () => {
+    const { result } = await setup([{ ...row('p1', 'Hello brave world'), settings: { emotion: '', segments: [{ start: 6, end: 11, emotion: 'angry' }] } }]);
+    expect(result.current.speechify.paragraphs[0]?.segments).toEqual([{ start: 6, end: 11, emotion: 'angry' }]);
+
+    vi.useFakeTimers();
+    act(() => result.current.speechify.applyEmotionToRange(0, 0, 5, 'sad'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+    const rows = paragraphsTable.argsOf('upsert')?.[0] as { settings: { segments: unknown[] } }[];
+    expect(rows[0]?.settings.segments).toHaveLength(2);
+  });
+});
+
+describe('model', () => {
+  it('uses the automatic model of the voice and lets the user override it', async () => {
+    mocks.getVoices.mockResolvedValue([
+      { id: 'henry', locale: 'en-US', models: ['simba-3.2', 'simba-3.0', 'simba-multilingual'].map((name) => ({ name, languages: [{ locale: 'en-US' }] })) },
+    ]);
+    const { result } = await setup([row('p1', 'First')]);
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+    expect(result.current.speechify.model).toBe('simba-3.2');
+
+    act(() => result.current.settings.setModelChoice('simba-3.0'));
+    expect(result.current.speechify.model).toBe('simba-3.0');
+
+    await act(async () => { await result.current.speechify.generateParagraphAudio(0); });
+    expect(mocks.synthesize.mock.calls[0]?.[4]).toMatchObject({ model: 'simba-3.0' });
+  });
+
+  it('ignores a manual model the voice cannot use', async () => {
+    mocks.getVoices.mockResolvedValue([{ id: 'henry', locale: 'en-US', models: [{ name: 'simba-3.2', languages: [{ locale: 'en-US' }] }] }]);
+    const { result } = await setup([row('p1', 'First')]);
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+    act(() => result.current.settings.setModelChoice('simba-multilingual'));
+    expect(result.current.speechify.model).toBe('simba-3.2');
+  });
+
+  it('discards generated audio when the user changes the model', async () => {
+    const { result } = await setup([row('p1', 'First', 'https://cdn.example/1.wav')]);
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+    expect(result.current.speechify.paragraphs[0]?.isGenerated).toBe(true);
+
+    act(() => result.current.settings.setModelChoice('simba-3.0'));
+    await waitFor(() => expect(result.current.speechify.paragraphs[0]?.isGenerated).toBe(false));
   });
 });
 

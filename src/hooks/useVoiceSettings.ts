@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { GlobalDefaults } from '../types/models';
 import { DEFAULT_GLOBAL_DEFAULTS } from '../constants/voiceConstants';
 import { hasSameShape } from '../utils/shape';
+import { AUTO_MODEL } from '../utils/voices';
 
 const STORAGE_PREFIX = 'voiceforge_';
 
@@ -45,6 +46,8 @@ export const useVoiceSettings = () => {
   const [fadeInDuration, setFadeInDuration] = useState(() => loadState('fadeInDuration', 100));
   const [fadeOutDuration, setFadeOutDuration] = useState(() => loadState('fadeOutDuration', 100));
 
+  // "auto" lets the app pick the model for the voice and language, otherwise a model name.
+  const [modelChoice, setModelChoice] = useState(() => loadState('modelChoice', AUTO_MODEL));
   const [emotion, setEmotion] = useState(() => loadState('emotion', ''));
   const [globalEmphasis, setGlobalEmphasis] = useState(() => loadState('globalEmphasis', ''));
 
@@ -57,7 +60,7 @@ export const useVoiceSettings = () => {
     const values = {
       globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause,
       useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion,
-      globalEmphasis,
+      globalEmphasis, modelChoice,
     };
     try {
       Object.entries(values).forEach(([key, value]) => {
@@ -66,7 +69,7 @@ export const useVoiceSettings = () => {
     } catch {
       // Storage can be full or blocked (private mode); settings then simply are not persisted.
     }
-  }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis]);
+  }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis, modelChoice]);
 
   const updateGlobalDefaults = useCallback(<K extends keyof GlobalDefaults>(field: K, value: GlobalDefaults[K]) => {
     setGlobalDefaults((prev) => (prev[field] === value ? prev : { ...prev, [field]: value }));
@@ -97,6 +100,7 @@ export const useVoiceSettings = () => {
     setFadeOutDuration(100);
     setEmotion('');
     setGlobalEmphasis('');
+    setModelChoice(AUTO_MODEL);
   }, []);
 
   return {
@@ -119,6 +123,8 @@ export const useVoiceSettings = () => {
     setFadeInDuration,
     fadeOutDuration,
     setFadeOutDuration,
+    modelChoice,
+    setModelChoice,
     emotion,
     setEmotion,
     globalEmphasis,

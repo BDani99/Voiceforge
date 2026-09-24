@@ -31,6 +31,10 @@ export interface Paragraph {
   isGenerated: boolean;
   /** True when the audio came from the shared cache (no credits were charged). */
   wasCached: boolean;
+  /** Emotion of the whole paragraph: empty = default of all paragraphs, none = neutral. */
+  emotion: string;
+  /** Emotions of highlighted parts. Excludes a paragraph emotion (see paragraphEmotion.ts). */
+  segments: EmotionSegment[];
 }
 
 /** Pitch, rate and volume: either a named preset or a custom percentage. */
