@@ -128,10 +128,11 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     try {
       const voiceList = await speechifyService.getVoices();
       setVoices(voiceList);
-      const [first] = voiceList;
-      if (first) {
-        setSelectedVoice(first.id);
-        if (first.locale) setSelectedLanguage(first.locale);
+      // Start with an English voice when there is one, the list itself is not ordered by language.
+      const initial = voiceList.find((v) => v.locale === 'en-US') ?? voiceList[0];
+      if (initial) {
+        setSelectedVoice(initial.id);
+        if (initial.locale) setSelectedLanguage(initial.locale);
       }
     } catch (err) {
       setError(`Failed to load voices: ${getErrorMessage(err)}`);

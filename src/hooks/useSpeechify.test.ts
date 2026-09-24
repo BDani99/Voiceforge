@@ -92,6 +92,20 @@ describe('loading', () => {
     expect(result.current.speechify.selectedLanguage).toBe('en-US');
   });
 
+  it('prefers an English voice even when the list starts with another language', async () => {
+    mocks.getVoices.mockResolvedValue([{ id: 'aadi', locale: 'hi-IN' }, { id: 'henry', locale: 'en-US' }]);
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+    expect(result.current.speechify.selectedLanguage).toBe('en-US');
+  });
+
+  it('falls back to the first voice when there is no English one', async () => {
+    mocks.getVoices.mockResolvedValue([{ id: 'aadi', locale: 'hi-IN' }]);
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('aadi'));
+    expect(result.current.speechify.selectedLanguage).toBe('hi-IN');
+  });
+
   it('reports a voice loading failure', async () => {
     mocks.getVoices.mockRejectedValue(new Error('Failed to fetch'));
     const { result } = await setup();
