@@ -59,7 +59,7 @@ function setup({ paragraphs = [paragraph('a', 'One'), paragraph('b', 'Two')], ga
 
   const props = {
     paragraphs,
-    settings: { useParagraphGap: gap, paragraphGapPause: 500, useFadeTransitions: false },
+    settings: { useParagraphGap: gap, paragraphGapPause: 500, useFadeTransitions: false, streamingEnabled: false },
   };
   const rendered = renderHook(
     ({ paragraphs: p, settings }) =>
@@ -140,7 +140,7 @@ describe('handlePlayAll', () => {
     const { result, generateParagraphAudio } = setup({ paragraphs: [paragraph('a', 'One', null)] });
     act(() => result.current.handlePlayAll());
     await flush();
-    expect(generateParagraphAudio).toHaveBeenCalledWith(0, false);
+    expect(generateParagraphAudio).toHaveBeenCalledWith(0, false, undefined);
     expect(FakeAudio.instances).toHaveLength(1);
   });
 
@@ -165,7 +165,7 @@ describe('handlePlayAll', () => {
     act(() => result.current.handlePlayAll());
     await flush();
 
-    expect(generateParagraphAudio).toHaveBeenCalledWith(0, false);
+    expect(generateParagraphAudio).toHaveBeenCalledWith(0, false, undefined);
     expect(FakeAudio.instances).toHaveLength(1);
   });
 

@@ -52,6 +52,8 @@ interface RightPanelProps {
   setUseParagraphGap: (enabled: boolean) => void;
   paragraphGapPause: number;
   setParagraphGapPause: (ms: number) => void;
+  streamingEnabled: boolean;
+  setStreamingEnabled: (enabled: boolean) => void;
   dictionary: DictionaryApi;
   error?: string;
   presetsComponent?: ReactNode;
@@ -91,6 +93,8 @@ function RightPanel({
   setUseParagraphGap,
   paragraphGapPause,
   setParagraphGapPause,
+  streamingEnabled,
+  setStreamingEnabled,
   dictionary,
   error,
   presetsComponent,
@@ -279,6 +283,21 @@ function RightPanel({
                       <span className="range-value">{paragraphGapPause}ms</span>
                     </div>
                   )}
+                </div>
+
+                <div className="setting-group">
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={streamingEnabled}
+                      onChange={(e) => setStreamingEnabled(e.target.checked)}
+                    />
+                    <span style={{ fontSize: '0.85rem', marginLeft: '6px' }}>Play while the audio is being generated</span>
+                  </label>
+                  <p className="rp-hint">
+                    Playback starts after the first second instead of when the whole paragraph is done. The finished audio
+                    is stored as usual. Not available in browsers without Web Audio.
+                  </p>
                 </div>
               </div>
             </Accordion>

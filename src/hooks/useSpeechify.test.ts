@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getVoices: vi.fn(),
   synthesize: vi.fn(),
   marks: vi.fn((): SpeechMarks | null => null),
+  streamSynthesis: vi.fn(),
   clearCache: vi.fn(),
   findCachedAudio: vi.fn(),
   storeAudio: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../services/speechifyService', () => ({
   default: {
     getVoices: mocks.getVoices,
     synthesize: mocks.synthesize,
+    streamSynthesis: mocks.streamSynthesis,
     synthesizeDetailed: async (...args: unknown[]) => ({ blob: (await mocks.synthesize(...args)) as Blob, marks: mocks.marks() }),
     clearCache: mocks.clearCache,
   },
@@ -283,6 +285,67 @@ describe('generation', () => {
 
     expect(result.current.speechify.paragraphs[0]?.speechMarks).toEqual({ durationMs: 900, words: [[0, 5, 50, 400]] });
     expect(result.current.speechify.paragraphs[1]?.speechMarks).toBeNull(); // words beyond the text
+  });
+
+  it('streams the paragraph when asked to: audio and live timings go out, the finished audio is stored', async () => {
+    const marks: SpeechMarks = { durationMs: 900, words: [[0, 5, 50, 400]] };
+    mocks.streamSynthesis.mockImplementation((_t: string, _v: string, _l: string, _o: unknown, _r: unknown, callbacks: { onAudio: (b: Uint8Array) => void; onWords: (w: [number, number, number, number][]) => void }) => {
+      callbacks.onAudio(new Uint8Array([1, 2]));
+      callbacks.onWords([[0, 5, 50, 400]]);
+      return Promise.resolve({ blob: new Blob(['wav'], { type: 'audio/wav' }), marks });
+    });
+    const onAudio = vi.fn();
+    const onWords = vi.fn();
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+
+    await act(async () => {
+      await result.current.speechify.generateParagraphAudio(0, false, { onAudio, onWords });
+    });
+
+    expect(mocks.synthesize).not.toHaveBeenCalled();
+    expect(onAudio).toHaveBeenCalledWith(new Uint8Array([1, 2]));
+    expect(onWords).toHaveBeenCalledWith([[0, 5, 50, 400]]);
+    expect(mocks.storeAudio).toHaveBeenCalledWith(expect.any(String), expect.any(Blob), marks);
+    expect(result.current.speechify.paragraphs[0]).toMatchObject({ isGenerated: true, speechMarks: marks });
+  });
+
+  it('does not stream a text that is too long for one stream', async () => {
+    const long = 'x'.repeat(10_001);
+    const { result } = await setup([row('p1', long)]);
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+
+    await act(async () => {
+      await result.current.speechify.generateParagraphAudio(0, false, { onAudio: vi.fn() });
+    });
+    expect(mocks.streamSynthesis).not.toHaveBeenCalled();
+    expect(mocks.synthesize).toHaveBeenCalled();
+  });
+
+  it('does not stream cached audio (nothing arrives, the file is used)', async () => {
+    mocks.findCachedAudio.mockResolvedValue({ url: 'https://cdn.example/c.wav', blob: new Blob(['cached']), marks: null });
+    const onAudio = vi.fn();
+    const { result } = await setup();
+
+    await act(async () => {
+      await result.current.speechify.generateParagraphAudio(0, false, { onAudio });
+    });
+    expect(mocks.streamSynthesis).not.toHaveBeenCalled();
+    expect(onAudio).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed stream like any failed generation', async () => {
+    mocks.streamSynthesis.mockRejectedValue(new Error('The audio stream ended unexpectedly'));
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.speechify.selectedVoice).toBe('henry'));
+
+    let blob: Blob | null = new Blob();
+    await act(async () => {
+      blob = await result.current.speechify.generateParagraphAudio(0, false, { onAudio: vi.fn() });
+    });
+    expect(blob).toBeNull();
+    expect(result.current.speechify.error).toMatch(/ended unexpectedly/);
+    expect(result.current.speechify.paragraphs[0]?.isGenerated).toBe(false);
   });
 
   it('uses the shared cache first and charges nothing', async () => {

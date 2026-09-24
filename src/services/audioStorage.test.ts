@@ -152,9 +152,38 @@ describe('storeAudio', () => {
     await expect(storeAudio(HASH, new Blob(['x'], { type: 'audio/wav' }))).resolves.toBe(`${PREFIX}${HASH}.wav`);
   });
 
-  it('returns null when the upload fails', async () => {
+  it('returns null when the upload fails and the file is not there', async () => {
     mocks.upload.mockResolvedValue({ error: { message: 'too large' } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 404 })));
     await expect(storeAudio(HASH, new Blob(['x'], { type: 'audio/wav' }))).resolves.toBeNull();
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('uses a file that already exists when overwriting it is not allowed (another user uploaded it)', async () => {
+    mocks.upload.mockResolvedValue({ error: { message: 'new row violates row-level security policy' } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('audio', { status: 200 })));
+    mocks.from.mockReturnValue(queryMock({}).builder);
+
+    await expect(storeAudio(HASH, new Blob(['x'], { type: 'audio/wav' }))).resolves.toBe(`${PREFIX}${HASH}.wav`);
+  });
+
+  it('adds the word timings to an existing cache row that has none', async () => {
+    mocks.upload.mockResolvedValue({ error: null });
+    const cache = queryMock({});
+    mocks.from.mockReturnValue(cache.builder);
+
+    await storeAudio(HASH, new Blob(['x'], { type: 'audio/wav' }), { durationMs: 900, words: [[0, 5, 50, 400]] });
+
+    expect(cache.argsOf('update')).toEqual([{ speech_marks: { v: 1, durationMs: 900, words: [[0, 5, 50, 400]] } }]);
+    expect(cache.calls.find((c) => c.method === 'is')?.args).toEqual(['speech_marks', null]);
+    expect(cache.calls.find((c) => c.method === 'eq')?.args).toEqual(['hash_key', HASH]);
+  });
+
+  it('does not touch the row when there are no timings', async () => {
+    mocks.upload.mockResolvedValue({ error: null });
+    const cache = queryMock({});
+    mocks.from.mockReturnValue(cache.builder);
+    await storeAudio(HASH, new Blob(['x'], { type: 'audio/wav' }));
+    expect(cache.argsOf('update')).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import type { GlobalDefaults, Paragraph } from '../../../../types/models';
 import type { EmotionSegment } from '../../../../utils/emotionSegments';
 import { useBlobDuration } from '../../../../hooks/useBlobDuration';
 import { findWordIndex, wordRange } from '../../../../utils/speechMarks';
+import type { PlaybackSource } from '../../../../types/playback';
 import EmotionTextarea, { type TextRange } from './EmotionTextarea';
 import { HighlightList, MarkList, ParagraphEmotionSelect } from './EmotionControls';
 import { SelectionToolbar } from './SelectionToolbar';
@@ -37,8 +38,10 @@ interface ParagraphControlProps {
   isFirstParagraph?: boolean;
   /** This paragraph is the one that plays or is paused. */
   isActive?: boolean;
-  /** The audio element of a paragraph while it is playing or paused. */
-  getAudio?: (index: number) => HTMLAudioElement | null;
+  /** The audio of a paragraph while it is playing or paused (an audio element or a live stream). */
+  getAudio?: (index: number) => PlaybackSource | null;
+  /** The audio is being received and played at the same time. */
+  isStreaming?: boolean;
   /** Jumps to a position (0..1) in the audio of a paragraph. */
   onSeek?: (index: number, fraction: number) => void;
 }
@@ -70,6 +73,7 @@ function ParagraphControl({
   onClearAllMarks,
   isFirstParagraph = false,
   isActive = false,
+  isStreaming = false,
   getAudio,
   onSeek,
 }: ParagraphControlProps) {
@@ -206,11 +210,11 @@ function ParagraphControl({
           </button>
           <button
             onClick={() => void onPlay(index)}
-            disabled={isGenerating || !paragraph.text.trim()}
+            disabled={(isGenerating && !isStreaming) || !paragraph.text.trim()}
             className="para-btn play-btn"
             title={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"} aria-label={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"}
           >
-            {isGenerating ? <Loader2 size={18} className="spinning loader-icon" /> : isPlaying ? <Pause size={18} /> : <Play size={18} />}
+            {isGenerating && !isStreaming ? <Loader2 size={18} className="spinning loader-icon" /> : isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
           <button
             onClick={() => onDelete(index)}
@@ -288,7 +292,7 @@ function ParagraphControl({
                 />
               </div>
             </div>
-            <div className="local-time">{formatTime(duration, Math.ceil)}</div>
+            <div className="local-time">{isStreaming ? 'live' : formatTime(duration, Math.ceil)}</div>
           </div>
         )}
       </div>

@@ -54,18 +54,28 @@ export async function findCachedAudio(hashKey: string, textLength = Number.MAX_S
   }
 }
 
+async function fileExists(url: string): Promise<boolean> {
+  try {
+    return (await fetch(url, { method: 'HEAD' })).ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Uploads audio and registers it in the cache table. Returns the public URL, or null on failure. */
 export async function storeAudio(hashKey: string, blob: Blob, marks: SpeechMarks | null = null): Promise<string | null> {
   try {
     const extension = EXTENSIONS[blob.type] ?? 'wav';
     const path = `${hashKey}.${extension}`;
 
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(path, blob, { upsert: true, contentType: blob.type || 'audio/wav' });
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    // The name is the hash of text and settings: a file that already exists (uploaded by another user, who
+    // is the only one allowed to overwrite it) holds the same audio, so it can simply be used.
+    if (uploadError && !(await fileExists(data.publicUrl))) throw uploadError;
 
     // The file is usable even if registering it in the shared cache fails.
     const { error: cacheError } = await supabase
@@ -76,6 +86,16 @@ export async function storeAudio(hashKey: string, blob: Blob, marks: SpeechMarks
         { onConflict: 'hash_key', ignoreDuplicates: true },
       );
     if (cacheError) console.error('Failed to register audio in cache', cacheError);
+
+    // Audio from before word timings were kept: add them to the existing row (allowed once, only while empty).
+    if (marks && !cacheError) {
+      const { error: marksError } = await supabase
+        .from('audio_cache')
+        .update({ speech_marks: serializeMarks(marks) })
+        .eq('hash_key', hashKey)
+        .is('speech_marks', null);
+      if (marksError) console.error('Failed to add word timings to the cache', marksError);
+    }
 
     return data.publicUrl;
   } catch (err) {

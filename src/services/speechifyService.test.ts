@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), concatenateAudio: vi.fn(), duration: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), concatenateAudio: vi.fn(), duration: vi.fn(), stream: vi.fn() }));
 
 vi.mock('./supabase', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock('../utils/audioProcessing', () => ({ concatenateAudio: mocks.concatenateAudio }));
 vi.mock('../utils/audioDuration', () => ({ audioDurationMs: mocks.duration }));
+vi.mock('./speechStream', () => ({ MAX_STREAM_CHARS: 10_000, requestSpeechStream: mocks.stream }));
 
 const { default: speechify, SpeechServiceError } = await import('./speechifyService');
 
@@ -268,6 +269,71 @@ describe('speech marks', () => {
       .mockResolvedValue({ data: audio, error: null });
     const { marks } = await speechify.synthesizeDetailed(text, 'v', 'en-US', {});
     expect(marks).toBeNull();
+  });
+});
+
+describe('streamSynthesis', () => {
+  const callbacks = { onAudio: vi.fn(), onWords: vi.fn() };
+  const done = (pcm: number[][] = [[1, 2, 3, 4]], words: [number, number, number, number][] = [[0, 5, 10, 400]]) =>
+    ({ pcm: pcm.map((c) => Uint8Array.from(c)), words, durationMs: 1500 });
+
+  beforeEach(() => {
+    mocks.stream.mockResolvedValue(done());
+  });
+
+  it('sends the SSML request and returns a WAV file with the word timings', async () => {
+    const { blob, marks } = await speechify.streamSynthesis('Hello', 'henry', 'en-US', {}, { model: 'simba-3.2', projectId: 'p1' }, callbacks);
+
+    const [body, given] = mocks.stream.mock.calls[0] as [Record<string, unknown>, unknown];
+    expect(body).toMatchObject({ voice_id: 'henry', language: 'en-US', model: 'simba-3.2', action: 'generation', project_id: 'p1' });
+    expect(body.input).toBe('<speak>Hello</speak>');
+    expect(given).toBe(callbacks);
+    expect(blob.type).toBe('audio/wav');
+    expect(blob.size).toBe(44 + 4);
+    expect(marks).toEqual({ durationMs: 1500, words: [[0, 5, 10, 400]] });
+    expect(mocks.invoke).not.toHaveBeenCalled(); // the plain request is not used
+  });
+
+  it('has no timings when none were sent', async () => {
+    mocks.stream.mockResolvedValue(done([[1, 2]], []));
+    expect((await speechify.streamSynthesis('Hello', 'v', 'en-US', {}, { model: 'simba-3.2' }, callbacks)).marks).toBeNull();
+  });
+
+  it('takes the automatic model when none is given and leaves out emotions for models without them', async () => {
+    await speechify.streamSynthesis('Hello', 'v', 'en-US', { emotion: { enabled: true, type: 'calm' } }, {}, callbacks);
+    expect((mocks.stream.mock.calls[0]?.[0] as { model: string }).model).toBe('simba-3.2');
+    expect((mocks.stream.mock.calls[0]?.[0] as { input: string }).input).toContain('speechify:style');
+
+    mocks.stream.mockClear();
+    await speechify.streamSynthesis('Hello', 'v', 'en-US', { emotion: { enabled: true, type: 'calm' } }, { model: 'simba-multilingual' }, callbacks);
+    expect((mocks.stream.mock.calls[0]?.[0] as { input: string }).input).not.toContain('speechify:style');
+  });
+
+  it('retries as plain speech when the voice rejects the style tags (before any audio was sent)', async () => {
+    const warning = vi.fn();
+    window.addEventListener('speechify-fallback-warning', warning);
+    mocks.stream.mockRejectedValueOnce(new SpeechServiceError('bad ssml', 400)).mockResolvedValueOnce(done());
+
+    await speechify.streamSynthesis('Hello', 'v', 'en-US', { emotion: { enabled: true, type: 'calm' } }, { model: 'simba-3.2' }, callbacks);
+
+    expect(mocks.stream).toHaveBeenCalledTimes(2);
+    expect((mocks.stream.mock.calls[1]?.[0] as { input: string }).input).toBe('<speak>Hello</speak>');
+    expect(warning).toHaveBeenCalled();
+    window.removeEventListener('speechify-fallback-warning', warning);
+  });
+
+  it('does not retry other errors, and not a 400 without style tags', async () => {
+    mocks.stream.mockRejectedValueOnce(new SpeechServiceError('Insufficient credits', 402));
+    await expect(speechify.streamSynthesis('Hello', 'v', 'en-US', {}, { model: 'simba-3.2' }, callbacks)).rejects.toMatchObject({ status: 402 });
+
+    mocks.stream.mockRejectedValueOnce(new SpeechServiceError('bad', 400));
+    await expect(speechify.streamSynthesis('Hello', 'v', 'en-US', {}, { model: 'simba-3.2' }, callbacks)).rejects.toMatchObject({ status: 400 });
+    expect(mocks.stream).toHaveBeenCalledTimes(2);
+  });
+
+  it('knows which texts can be streamed', () => {
+    expect(speechify.canStream('x'.repeat(10_000))).toBe(true);
+    expect(speechify.canStream('x'.repeat(10_001))).toBe(false);
   });
 });
 

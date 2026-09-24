@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  StreamWatcher,
   countBillableCharacters,
   mapReserveError,
   mapSpeechifyStatus,
@@ -43,6 +44,7 @@ describe('parseGenerateRequest', () => {
         action: 'generation',
         projectId: null,
         billableCharacters: 5,
+        stream: false,
       },
     })
   })
@@ -94,5 +96,52 @@ describe('error mapping', () => {
     expect(mapSpeechifyStatus(404)).toBe(404)
     expect(mapSpeechifyStatus(500)).toBe(502)
     expect(mapSpeechifyStatus(302)).toBe(502)
+  })
+})
+
+describe('stream flag', () => {
+  it('defaults to false and accepts a boolean', () => {
+    expect(parseGenerateRequest(valid)).toMatchObject({ ok: true, value: { stream: false } })
+    expect(parseGenerateRequest({ ...valid, stream: true })).toMatchObject({ ok: true, value: { stream: true } })
+  })
+
+  it('rejects anything else', () => {
+    expect(parseGenerateRequest({ ...valid, stream: 'yes' })).toEqual({ ok: false, error: 'Invalid stream flag' })
+  })
+})
+
+describe('StreamWatcher', () => {
+  const bytes = (text: string) => new TextEncoder().encode(text)
+
+  it('is not billable before audio arrives', () => {
+    const watcher = new StreamWatcher()
+    expect(watcher.billable).toBe(false)
+    watcher.push(bytes('event: speech.done\ndata: {}\n\n'))
+    expect(watcher.done).toBe(true)
+    expect(watcher.billable).toBe(false)
+  })
+
+  it('is billable once audio arrived, also when the stream is not finished (the listener left)', () => {
+    const watcher = new StreamWatcher()
+    watcher.push(bytes('event: speech.chunk\ndata: {"audio":"AAAA"}\n\n'))
+    expect(watcher.sawAudio).toBe(true)
+    expect(watcher.done).toBe(false)
+    expect(watcher.billable).toBe(true)
+  })
+
+  it('is not billable when the stream fails', () => {
+    const watcher = new StreamWatcher()
+    watcher.push(bytes('event: speech.chunk\ndata: {}\n\n'))
+    watcher.push(bytes('event: speech.error\ndata: {"error":{"code":"upstream_failure"}}\n\n'))
+    expect(watcher.failed).toBe(true)
+    expect(watcher.billable).toBe(false)
+  })
+
+  it('recognises an event name that is split between two chunks', () => {
+    const watcher = new StreamWatcher()
+    watcher.push(bytes('data: {}\n\nevent: speech.ch'))
+    expect(watcher.sawAudio).toBe(false)
+    watcher.push(bytes('unk\ndata: {}\n\n'))
+    expect(watcher.sawAudio).toBe(true)
   })
 })

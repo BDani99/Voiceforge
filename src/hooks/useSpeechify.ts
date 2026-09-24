@@ -7,6 +7,8 @@ import { notify, getErrorMessage } from '../utils/notificationService';
 import { addSegment, clearRange, rebaseSegments } from '../utils/emotionSegments';
 import { addMark, clearMarksRange, rebaseMarks, type TextMark } from '../utils/textMarks';
 import { parseStoredMarks, type SpeechMarks } from '../utils/speechMarks';
+import { MAX_STREAM_CHARS, type StreamCallbacks } from '../services/speechStream';
+import type { SynthesisResult } from '../services/speechifyService';
 import type { Json } from '../types/database';
 import { effectiveParagraphEmotion, emotionMode, parseParagraphSettings, serializeParagraphSettings } from '../utils/paragraphEmotion';
 import { resolveModel, voicesForLanguage } from '../utils/voices';
@@ -387,7 +389,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     [paragraphs],
   );
 
-  const runGeneration = useCallback(async (index: number, forceRegenerate: boolean): Promise<Blob> => {
+  const runGeneration = useCallback(async (index: number, forceRegenerate: boolean, stream?: StreamCallbacks): Promise<Blob> => {
     // Generating before the dictionary is known would ignore the user's pronunciations.
     if (!settings.dictionaryLoaded) {
       throw new Error('Your dictionary has not loaded yet. Please wait a moment or reload the page.');
@@ -424,13 +426,17 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     }
 
     // Credits are checked, charged and refunded on failure by the Edge Function.
-    const synthesis = await speechifyService.synthesizeDetailed(
-      paragraph.text,
-      selectedVoice,
-      selectedLanguage,
-      ssmlOptions,
-      { forceRegenerate, action: 'generation', projectId, model },
-    );
+    const requestOptions = { forceRegenerate, action: 'generation', projectId, model } as const;
+    // A streamed paragraph is played while it is made; its timings arrive with the audio, so the spoken word can be shown live.
+    const synthesis: SynthesisResult = stream && paragraph.text.length <= MAX_STREAM_CHARS
+      ? await speechifyService.streamSynthesis(paragraph.text, selectedVoice, selectedLanguage, ssmlOptions, requestOptions, {
+        onAudio: stream.onAudio,
+        onWords: (words) => {
+          stream.onWords?.(words);
+          patchParagraph(id, { speechMarks: { durationMs: words[words.length - 1]?.[3] ?? 0, words } });
+        },
+      })
+      : await speechifyService.synthesizeDetailed(paragraph.text, selectedVoice, selectedLanguage, ssmlOptions, requestOptions);
     let audioBlob = synthesis.blob;
     const speechMarks = synthesis.marks;
 
@@ -448,7 +454,8 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     return audioBlob;
   }, [paragraphs, selectedVoice, selectedLanguage, model, settings, projectId, patchParagraph]);
 
-  const generateParagraphAudio = useCallback(async (index: number, forceRegenerate = false): Promise<Blob | null> => {
+  /** `stream` receives the audio while it is made (only when the audio has to be generated, not for cached audio). */
+  const generateParagraphAudio = useCallback(async (index: number, forceRegenerate = false, stream?: StreamCallbacks): Promise<Blob | null> => {
     const paragraph = paragraphs[index];
     if (!paragraph?.text.trim()) return null;
 
@@ -471,7 +478,7 @@ export const useSpeechify = (settings: VoiceSettings, projectId: string | undefi
     setError('');
     if (forceRegenerate) patchParagraph(paragraph.id, STALE_AUDIO);
 
-    const promise = runGeneration(index, forceRegenerate)
+    const promise = runGeneration(index, forceRegenerate, stream)
       .catch((err) => {
         console.error(`Error generating paragraph ${index + 1}:`, err);
         setError(`Error generating paragraph ${index + 1}: ${getErrorMessage(err)}`);

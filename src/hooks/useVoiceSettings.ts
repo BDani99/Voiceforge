@@ -48,6 +48,8 @@ export const useVoiceSettings = () => {
 
   // "auto" lets the app pick the model for the voice and language, otherwise a model name.
   const [modelChoice, setModelChoice] = useState(() => loadState('modelChoice', AUTO_MODEL));
+  // Play audio while it is still being generated (needs a browser with Web Audio).
+  const [streamingEnabled, setStreamingEnabled] = useState(() => loadState('streamingEnabled', true));
   const [emotion, setEmotion] = useState(() => loadState('emotion', ''));
   const [globalEmphasis, setGlobalEmphasis] = useState(() => loadState('globalEmphasis', ''));
 
@@ -60,7 +62,7 @@ export const useVoiceSettings = () => {
     const values = {
       globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause,
       useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion,
-      globalEmphasis, modelChoice,
+      globalEmphasis, modelChoice, streamingEnabled,
     };
     try {
       Object.entries(values).forEach(([key, value]) => {
@@ -69,7 +71,7 @@ export const useVoiceSettings = () => {
     } catch {
       // Storage can be full or blocked (private mode); settings then simply are not persisted.
     }
-  }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis, modelChoice]);
+  }, [globalDefaults, pauseStrength, pauseCustomTime, usePauseCustom, paragraphGapPause, useParagraphGap, useFadeTransitions, fadeInDuration, fadeOutDuration, emotion, globalEmphasis, modelChoice, streamingEnabled]);
 
   const updateGlobalDefaults = useCallback(<K extends keyof GlobalDefaults>(field: K, value: GlobalDefaults[K]) => {
     setGlobalDefaults((prev) => (prev[field] === value ? prev : { ...prev, [field]: value }));
@@ -101,6 +103,7 @@ export const useVoiceSettings = () => {
     setEmotion('');
     setGlobalEmphasis('');
     setModelChoice(AUTO_MODEL);
+    setStreamingEnabled(true);
   }, []);
 
   return {
@@ -125,6 +128,8 @@ export const useVoiceSettings = () => {
     setFadeOutDuration,
     modelChoice,
     setModelChoice,
+    streamingEnabled,
+    setStreamingEnabled,
     emotion,
     setEmotion,
     globalEmphasis,

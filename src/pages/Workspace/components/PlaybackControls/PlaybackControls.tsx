@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Play, Pause } from 'lucide-react';
 import type { Paragraph } from '../../../../types/models';
+import type { PlaybackSource } from '../../../../types/playback';
 import './PlaybackControls.css';
 
 type SegmentStatus = 'empty' | 'generated' | 'generating' | 'playing' | 'paused';
@@ -18,7 +19,7 @@ interface PlaybackControlsProps {
   isPlaying: boolean;
   currentPlayingIndex: number;
   generatingIndex: number;
-  getAudioFor: (index: number) => HTMLAudioElement | null;
+  getAudioFor: (index: number) => PlaybackSource | null;
 }
 
 interface SegmentProps {
@@ -27,7 +28,7 @@ interface SegmentProps {
   /** This is the paragraph that plays or is paused. */
   current: boolean;
   running: boolean;
-  getAudioFor: (index: number) => HTMLAudioElement | null;
+  getAudioFor: (index: number) => PlaybackSource | null;
   onSkip: (index: number) => void;
 }
 

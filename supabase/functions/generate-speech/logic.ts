@@ -14,6 +14,9 @@ const LOCALE_RE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/
 
 export type GenerateAction = 'generation' | 'preview'
 
+// Streamed audio is delivered as raw 16-bit mono PCM: every browser can play it and it needs no decoder.
+export const STREAM_OUTPUT_FORMAT = 'pcm_24000'
+
 export interface GenerateRequest {
   input: string
   voiceId: string
@@ -23,6 +26,8 @@ export interface GenerateRequest {
   /** Only present when the client sent a syntactically valid UUID; ownership is checked later. */
   projectId: string | null
   billableCharacters: number
+  /** Answer with a stream of audio and word timings instead of one JSON document. */
+  stream: boolean
 }
 
 export type ParseResult =
@@ -41,7 +46,7 @@ export function parseGenerateRequest(body: unknown): ParseResult {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return { ok: false, error: 'Invalid JSON body' }
   }
-  const { input, voice_id, language, model, action = 'generation', project_id } =
+  const { input, voice_id, language, model, action = 'generation', project_id, stream = false } =
     body as Record<string, unknown>
 
   if (typeof input !== 'string' || !input.trim() || typeof voice_id !== 'string' || !voice_id) {
@@ -60,6 +65,8 @@ export function parseGenerateRequest(body: unknown): ParseResult {
     return { ok: false, error: 'Invalid action' }
   }
 
+  if (typeof stream !== 'boolean') return { ok: false, error: 'Invalid stream flag' }
+
   const billableCharacters = countBillableCharacters(input)
   if (billableCharacters === 0) return { ok: false, error: 'Nothing to synthesize' }
 
@@ -73,6 +80,7 @@ export function parseGenerateRequest(body: unknown): ParseResult {
       action: action as GenerateAction,
       projectId: typeof project_id === 'string' && UUID_RE.test(project_id) ? project_id : null,
       billableCharacters,
+      stream,
     },
   }
 }
@@ -104,6 +112,32 @@ export function mapReserveError(error: { code?: string; message?: string }): Htt
       return { status: 429, message: 'Too many requests, please slow down' }
     default:
       return { status: 500, message: 'Internal server error' }
+  }
+}
+
+/**
+ * Follows the server-sent events of a Speechify stream while they pass through, without parsing the
+ * payloads: it only needs to know whether audio arrived and how the stream ended.
+ */
+export class StreamWatcher {
+  sawAudio = false
+  done = false
+  failed = false
+  private tail = ''
+  private readonly decoder = new TextDecoder()
+
+  push(chunk: Uint8Array): void {
+    const text = this.tail + this.decoder.decode(chunk, { stream: true })
+    if (text.includes('event: speech.chunk')) this.sawAudio = true
+    if (text.includes('event: speech.done')) this.done = true
+    if (text.includes('event: speech.error')) this.failed = true
+    // An event name can be cut in two by a chunk boundary.
+    this.tail = text.slice(-24)
+  }
+
+  /** Charged: the stream delivered audio and did not fail. A user who stops listening early still paid for it. */
+  get billable(): boolean {
+    return this.sawAudio && !this.failed
   }
 }
 

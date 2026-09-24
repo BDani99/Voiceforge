@@ -1,5 +1,8 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { SpeechServiceError } from './speechErrors';
+import { MAX_STREAM_CHARS, requestSpeechStream, type StreamCallbacks } from './speechStream';
+import { pcmToWav } from '../utils/pcm';
 import { buildSSML } from '../utils/ssml';
 import { concatenateAudio } from '../utils/audioProcessing';
 import { splitIntoChunkRanges, MAX_CHARS_PER_REQUEST } from '../utils/text';
@@ -14,15 +17,7 @@ const FUNCTION_NAME = 'generate-speech';
 const MAX_CONCURRENT_REQUESTS = 2; // keeps Speechify from answering 429
 const MAX_CACHE_ENTRIES = 50;
 
-export class SpeechServiceError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status = 0) {
-    super(message);
-    this.name = 'SpeechServiceError';
-    this.status = status;
-  }
-}
+export { SpeechServiceError };
 
 /** Turns a supabase.functions.invoke error into a SpeechServiceError carrying the HTTP status. */
 async function toServiceError(error: Error): Promise<SpeechServiceError> {
@@ -82,6 +77,30 @@ export interface RequestOptions {
   /** Speechify model. Defaults to the automatic choice for the language. */
   model?: string;
 }
+
+/** Emotion and emphasis are only supported by some models. */
+function optionsForModel(model: string, options: SsmlOptions): SsmlOptions {
+  return supportsEmotion(model) ? options : withoutStyling(options);
+}
+
+/** The same options without emotions and emphasis: plain speech. */
+function withoutStyling(options: SsmlOptions): SsmlOptions {
+  return {
+    ...options,
+    emotion: { enabled: false },
+    emotionSegments: [],
+    emphasis: { enabled: false },
+    marks: (options.marks ?? []).filter((m) => m.kind !== 'emphasis'),
+  };
+}
+
+const usesStyleTags = (options: SsmlOptions): boolean =>
+  [
+    options.emotion?.enabled,
+    (options.emotionSegments?.length ?? 0) > 0,
+    options.emphasis?.enabled,
+    (options.marks ?? []).some((m) => m.kind === 'emphasis'),
+  ].some(Boolean);
 
 class SpeechifyService {
   private activeRequests = 0;
@@ -187,16 +206,7 @@ class SpeechifyService {
       return cached;
     }
 
-    // Emotion and emphasis are only supported by some models.
-    const effectiveOptions: SsmlOptions = supportsEmotion(model)
-      ? ssmlOptions
-      : {
-        ...ssmlOptions,
-        emotion: { enabled: false },
-        emotionSegments: [],
-        emphasis: { enabled: false },
-        marks: (ssmlOptions.marks ?? []).filter((m) => m.kind !== 'emphasis'),
-      };
+    const effectiveOptions = optionsForModel(model, ssmlOptions);
 
     const buildBody = (options: SsmlOptions) => ({
       input: buildSSML(text, options),
@@ -212,25 +222,12 @@ class SpeechifyService {
       data = await this.invoke(buildBody(effectiveOptions));
     } catch (error) {
       const status = error instanceof SpeechServiceError ? error.status : 0;
-      const usesStyleTags = [
-        effectiveOptions.emotion?.enabled,
-        (effectiveOptions.emotionSegments?.length ?? 0) > 0,
-        effectiveOptions.emphasis?.enabled,
-        (effectiveOptions.marks ?? []).some((m) => m.kind === 'emphasis'),
-      ].some(Boolean);
-
-      if (status === 400 && usesStyleTags) {
+      if (status === 400 && usesStyleTags(effectiveOptions)) {
         // The voice most likely rejected the emotion/emphasis tags: retry as plain speech.
         window.dispatchEvent(new CustomEvent('speechify-fallback-warning', {
           detail: { message: 'SSML formatting not supported by this voice. Falling back to default style.' },
         }));
-        data = await this.invoke(buildBody({
-          ...effectiveOptions,
-          emotion: { enabled: false },
-          emotionSegments: [],
-          emphasis: { enabled: false },
-          marks: (effectiveOptions.marks ?? []).filter((m) => m.kind !== 'emphasis'),
-        }));
+        data = await this.invoke(buildBody(withoutStyling(effectiveOptions)));
       } else if (status >= 500 && model === 'simba-multilingual') {
         throw new Error(`The simba-multilingual model (legacy) is currently unavailable. Try another model or try again later. (Error: ${status})`);
       } else {
@@ -256,6 +253,58 @@ class SpeechifyService {
     }
 
     return result;
+  }
+
+  /** Whether a text can be streamed (longer texts are generated in chunks instead). */
+  canStream(text: string): boolean {
+    return text.length <= MAX_STREAM_CHARS;
+  }
+
+  /**
+   * Like generateSpeechDetailed for one text, but the audio is handed to `callbacks` while it is made,
+   * so it can be played before it is finished. Returns the finished audio as a WAV file with its timings.
+   */
+  async streamSynthesis(
+    text: string,
+    voiceId: string,
+    language: string,
+    ssmlOptions: SsmlOptions,
+    requestOptions: RequestOptions,
+    callbacks: StreamCallbacks,
+  ): Promise<SynthesisResult> {
+    const { action = 'generation', projectId } = requestOptions;
+    const model = requestOptions.model ?? autoModel(undefined, language);
+    const effectiveOptions = optionsForModel(model, ssmlOptions);
+
+    const open = (options: SsmlOptions) => this.throttleRequest(() => requestSpeechStream({
+      input: buildSSML(text, options),
+      voice_id: voiceId,
+      language,
+      model,
+      action,
+      project_id: projectId,
+    }, callbacks));
+
+    let result;
+    try {
+      result = await open(effectiveOptions);
+    } catch (error) {
+      const status = error instanceof SpeechServiceError ? error.status : 0;
+      if (status === 400 && usesStyleTags(effectiveOptions)) {
+        // The voice most likely rejected the emotion/emphasis tags: retry as plain speech (no audio was sent yet).
+        window.dispatchEvent(new CustomEvent('speechify-fallback-warning', {
+          detail: { message: 'SSML formatting not supported by this voice. Falling back to default style.' },
+        }));
+        result = await open(withoutStyling(effectiveOptions));
+      } else {
+        throw error;
+      }
+    }
+
+    return {
+      blob: pcmToWav(result.pcm),
+      marks: result.words.length > 0 ? { durationMs: result.durationMs, words: result.words } : null,
+    };
   }
 
   private invoke(body: object): Promise<SpeechResponse> {

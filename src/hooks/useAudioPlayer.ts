@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { concatenateAudio } from '../utils/audioProcessing';
 import { fetchAudioBlob } from '../services/audioStorage';
 import { downloadBlob } from '../utils/download';
+import { StreamPlayer } from '../services/streamPlayer';
+import { MAX_STREAM_CHARS } from '../services/speechStream';
+import type { PlaybackSource } from '../types/playback';
 import { getErrorMessage } from '../utils/notificationService';
 import type { ConfirmFn } from './useConfirm';
 import type { SpeechifyApi } from './useSpeechify';
@@ -9,14 +12,16 @@ import type { VoiceSettings } from './useVoiceSettings';
 
 type Timer = ReturnType<typeof setTimeout>;
 
-/** The audio element that is loaded or playing, and the paragraph it belongs to. */
+/** The audio (an element, or a live stream) that is loaded or playing, and the paragraph it belongs to. */
 interface Loaded {
-  audio: HTMLAudioElement;
+  source: PlaybackSource;
   index: number;
   id: string;
   text: string;
-  blob: Blob;
-  url: string;
+  /** The finished audio; null while a stream is still being received. */
+  blob: Blob | null;
+  /** Stops the sound and lets go of everything the source holds. */
+  release: () => void;
 }
 
 interface StartOptions {
@@ -35,14 +40,16 @@ const isAbort = (error: unknown): boolean => error instanceof DOMException && er
 
 export const useAudioPlayer = (
   speechify: Pick<SpeechifyApi, 'paragraphs' | 'generateParagraphAudio' | 'setError'>,
-  settings: Pick<VoiceSettings, 'useParagraphGap' | 'paragraphGapPause' | 'useFadeTransitions'>,
+  settings: Pick<VoiceSettings, 'useParagraphGap' | 'paragraphGapPause' | 'useFadeTransitions' | 'streamingEnabled'>,
   setIsLoading: (loading: boolean) => void,
   showConfirm: ConfirmFn,
 ) => {
   const { paragraphs, generateParagraphAudio, setError } = speechify;
-  const { useParagraphGap, paragraphGapPause, useFadeTransitions } = settings;
+  const { useParagraphGap, paragraphGapPause, useFadeTransitions, streamingEnabled } = settings;
 
   const [activeIndex, setActiveIndex] = useState(-1);
+  /** The paragraph whose audio is being received and played at the same time. */
+  const [streamingIndex, setStreamingIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGlobalMode, setIsGlobalMode] = useState(false);
 
@@ -58,14 +65,14 @@ export const useAudioPlayer = (
 
   // Playback callbacks chain themselves from audio events, so they must always see the
   // latest paragraphs and functions instead of the render they were created in.
-  const latest = useRef({ paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause });
+  const latest = useRef({ paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause, streamingEnabled });
   useEffect(() => {
-    latest.current = { paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause };
+    latest.current = { paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause, streamingEnabled };
   });
 
   /** The audio of one paragraph, if it is loaded (playing or paused). */
   const getAudioFor = useCallback(
-    (index: number): HTMLAudioElement | null => (loadedRef.current?.index === index ? loadedRef.current.audio : null),
+    (index: number): PlaybackSource | null => (loadedRef.current?.index === index ? loadedRef.current.source : null),
     [],
   );
 
@@ -78,12 +85,8 @@ export const useAudioPlayer = (
   const unload = useCallback(() => {
     const loaded = loadedRef.current;
     loadedRef.current = null;
-    if (!loaded) return;
-    loaded.audio.onended = null;
-    loaded.audio.onerror = null;
-    loaded.audio.onloadedmetadata = null;
-    loaded.audio.pause();
-    URL.revokeObjectURL(loaded.url);
+    setStreamingIndex(-1);
+    loaded?.release();
   }, []);
 
   const finish = useCallback(() => {
@@ -124,6 +127,14 @@ export const useAudioPlayer = (
     const paragraph = latest.current.paragraphs[index];
     let blob: Blob | null = paragraph?.audioBlob ?? null;
 
+    // Pre-generate the next paragraph so Play All does not wait between paragraphs.
+    const prefetchNext = () => {
+      const upcomingIndex = queueRef.current[0];
+      if (upcomingIndex === undefined) return;
+      const upcoming = latest.current.paragraphs[upcomingIndex];
+      if (upcoming && !upcoming.isGenerated && !upcoming.audioUrl) void latest.current.generateParagraphAudio(upcomingIndex, false);
+    };
+
     // Generated earlier but not in memory: fetch it from the stored URL.
     if (!blob && paragraph?.isGenerated && paragraph.audioUrl) {
       try {
@@ -132,7 +143,49 @@ export const useAudioPlayer = (
         console.error('Failed to fetch audio from URL, regenerating...', e);
       }
     }
-    blob ??= await latest.current.generateParagraphAudio(index, false);
+    // Audio that still has to be made is played while it arrives, when the browser and the text allow it.
+    const streaming: { player: StreamPlayer | null } = { player: null };
+    if (!blob) {
+      const canStream = latest.current.streamingEnabled
+        && StreamPlayer.isSupported()
+        && !!paragraph && !paragraph.isGenerated
+        && paragraph.text.length <= MAX_STREAM_CHARS;
+
+      if (canStream) prefetchNext();
+      blob = await latest.current.generateParagraphAudio(index, false, canStream
+        ? {
+          onAudio: (pcm) => {
+            // Playback was replaced or paused meanwhile: the audio is still stored, only not played.
+            if (session !== sessionRef.current) return;
+            if (!streaming.player) {
+              const player = new StreamPlayer();
+              streaming.player = player;
+              unload();
+              const own = latest.current.paragraphs[index];
+              loadedRef.current = { source: player, index, id: own?.id ?? '', text: own?.text ?? '', blob: null, release: () => player.stop() };
+              setStreamingIndex(index);
+            }
+            streaming.player.push(pcm);
+          },
+        }
+        : undefined);
+    }
+
+    const streamed = streaming.player;
+    if (streamed) {
+      // The audio was played while it was made. When it is complete, its end is the end of this paragraph.
+      setStreamingIndex(-1);
+      const loaded = loadedRef.current;
+      if (session !== sessionRef.current || loaded?.source !== streamed) return;
+      loaded.blob = blob;
+      streamed.onended = () => {
+        if (session !== sessionRef.current) return;
+        unload();
+        advance();
+      };
+      streamed.end();
+      return;
+    }
 
     if (session !== sessionRef.current) return;
     const current = latest.current.paragraphs[index];
@@ -144,7 +197,20 @@ export const useAudioPlayer = (
     unload();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    loadedRef.current = { audio, index, id: current.id, text: current.text, blob, url };
+    loadedRef.current = {
+      source: audio,
+      index,
+      id: current.id,
+      text: current.text,
+      blob,
+      release: () => {
+        audio.onended = null;
+        audio.onerror = null;
+        audio.onloadedmetadata = null;
+        audio.pause();
+        URL.revokeObjectURL(url);
+      },
+    };
 
     audio.onloadedmetadata = () => {
       if (seek !== undefined && Number.isFinite(audio.duration)) audio.currentTime = seek * audio.duration;
@@ -161,12 +227,7 @@ export const useAudioPlayer = (
       advance();
     };
 
-    // Pre-generate the next paragraph so Play All does not wait between paragraphs.
-    const upcomingIndex = queueRef.current[0];
-    if (upcomingIndex !== undefined) {
-      const upcoming = latest.current.paragraphs[upcomingIndex];
-      if (upcoming && !upcoming.isGenerated && !upcoming.audioUrl) void latest.current.generateParagraphAudio(upcomingIndex, false);
-    }
+    prefetchNext();
 
     try {
       await audio.play();
@@ -191,7 +252,7 @@ export const useAudioPlayer = (
 
   const pause = useCallback(() => {
     clearGapTimer();
-    const audio = loadedRef.current?.audio;
+    const audio = loadedRef.current?.source;
     if (audio) {
       audio.pause();
     } else {
@@ -202,7 +263,7 @@ export const useAudioPlayer = (
 
   /** Continues a paused playback where it stopped. */
   const resume = useCallback(async () => {
-    const audio = loadedRef.current?.audio;
+    const audio = loadedRef.current?.source;
     if (!audio) {
       // It was paused before the audio was ready: start that paragraph again with its queue.
       sessionRef.current += 1;
@@ -254,7 +315,7 @@ export const useAudioPlayer = (
     const position = Math.max(0, Math.min(1, fraction));
     const audio = getAudioFor(index);
     if (audio) {
-      if (Number.isFinite(audio.duration)) audio.currentTime = position * audio.duration;
+      if (Number.isFinite(audio.duration)) audio.currentTime = position * audio.duration; // a live stream cannot be moved
       return;
     }
     const paragraph = paragraphs[index];
@@ -270,7 +331,7 @@ export const useAudioPlayer = (
       ? true
       : paragraph.id !== loaded.id
         || paragraph.text !== loaded.text
-        || (paragraph.audioBlob !== null && paragraph.audioBlob !== loaded.blob);
+        || (loaded.blob !== null && paragraph.audioBlob !== null && paragraph.audioBlob !== loaded.blob);
     if (changed) {
       sessionRef.current += 1;
       finish();
@@ -356,6 +417,7 @@ export const useAudioPlayer = (
     isPlayingAll: isGlobalMode && isPlaying,
     isPausedAll: isGlobalMode && !isPlaying && activeIndex !== -1,
     currentPlayingIndex: activeIndex,
+    streamingIndex,
     isPlaying,
     handlePlayParagraph,
     handlePlayAll,

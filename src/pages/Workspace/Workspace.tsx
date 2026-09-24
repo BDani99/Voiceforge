@@ -217,6 +217,7 @@ function Workspace() {
                         onClearAllMarks={speechify.clearAllMarks}
                         isFirstParagraph={index === 0}
                         isActive={audioPlayer.currentPlayingIndex === index}
+                        isStreaming={audioPlayer.streamingIndex === index}
                         getAudio={audioPlayer.getAudioFor}
                         onSeek={audioPlayer.seekParagraph}
                       />
@@ -261,6 +262,8 @@ function Workspace() {
             setUseParagraphGap={voiceSettings.setUseParagraphGap}
             paragraphGapPause={voiceSettings.paragraphGapPause}
             setParagraphGapPause={voiceSettings.setParagraphGapPause}
+            streamingEnabled={voiceSettings.streamingEnabled}
+            setStreamingEnabled={voiceSettings.setStreamingEnabled}
             dictionary={dictionary}
             error={speechify.error}
             presetsComponent={<PresetsPanel presets={presets} voices={speechify.voices} />}
