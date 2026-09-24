@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState, type MouseEvent } from 'react';
+import { useRef, useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Play, Pause, Loader2, Mic, Check, Trash2 } from 'lucide-react';
 import type { GlobalDefaults, Paragraph } from '../../../../types/models';
 import type { EmotionSegment } from '../../../../utils/emotionSegments';
+import { useBlobDuration } from '../../../../hooks/useBlobDuration';
 import EmotionTextarea, { type TextRange } from './EmotionTextarea';
 import { EmotionToolbar, HighlightList, ParagraphEmotionSelect } from './EmotionControls';
 import './ParagraphControl.css';
@@ -28,8 +29,10 @@ interface ParagraphControlProps {
   onClearEmotionRange: (index: number, start: number, end: number) => void;
   onClearHighlights: (index: number) => void;
   isFirstParagraph?: boolean;
-  /** Returns the audio element that is currently playing, if any. */
-  globalAudio?: () => HTMLAudioElement | null;
+  /** The audio element of a paragraph while it is playing or paused. */
+  getAudio?: (index: number) => HTMLAudioElement | null;
+  /** Jumps to a position (0..1) in the audio of a paragraph. */
+  onSeek?: (index: number, fraction: number) => void;
 }
 
 const percent = (value: number): string => `${value >= 0 ? '+' : ''}${value}%`;
@@ -55,63 +58,57 @@ function ParagraphControl({
   onClearEmotionRange,
   onClearHighlights,
   isFirstParagraph = false,
-  globalAudio,
+  getAudio,
+  onSeek,
 }: ParagraphControlProps) {
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [liveDuration, setLiveDuration] = useState(0);
   const [range, setRange] = useState<TextRange | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Update progress smoothly using globalAudio
+  // Length of the audio, known before it is played.
+  const knownDuration = useBlobDuration(paragraph.audioBlob);
+  const duration = liveDuration || knownDuration;
+
+  // The position comes from this paragraph's own audio element (never another paragraph's): it is
+  // followed frame by frame while playing and read once when paused or stopped.
   useEffect(() => {
-    let animationFrameId: number | undefined;
-
-    const updateProgress = () => {
-      if (isPlaying && globalAudio) {
-        const audio = globalAudio();
-        if (audio) {
-          setCurrentTime(audio.currentTime);
-          if (audio.duration && audio.duration !== Infinity) {
-            setDuration(audio.duration);
-          }
-        }
-        animationFrameId = requestAnimationFrame(updateProgress);
-      }
+    const read = () => {
+      const audio = getAudio?.(index) ?? null;
+      setCurrentTime(audio ? audio.currentTime : 0);
+      setLiveDuration(audio && Number.isFinite(audio.duration) ? audio.duration : 0);
     };
 
-    if (isPlaying) {
-      updateProgress();
-    }
+    read();
+    if (!isPlaying) return undefined;
 
-    return () => {
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    let frame = 0;
+    const tick = () => {
+      read();
+      frame = requestAnimationFrame(tick);
     };
-  }, [isPlaying, globalAudio]);
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [isPlaying, getAudio, index]);
 
-  const handlePlayPause = async () => {
-    if (isGenerated && (paragraph.audioBlob || paragraph.audioUrl)) {
-      void onPlay(index);
-    } else if (!isGenerating) {
-      // If not generated, generate it first, then play
-      const newBlob = await onGenerate(index, false);
-      if (newBlob) {
-        // Wait a small tick to ensure state is updated before playing
-        setTimeout(() => {
-          void onPlay(index);
-        }, 100);
-      }
-    }
+  const seekTo = (fraction: number) => {
+    const position = Math.max(0, Math.min(1, fraction));
+    onSeek?.(index, position);
+    if (duration > 0) setCurrentTime(position * duration);
   };
 
   const handleSeek = (e: MouseEvent<HTMLDivElement>) => {
-    const targetAudio = globalAudio ? globalAudio() : null;
-    if (!targetAudio || !duration) return;
-
     const rect = e.currentTarget.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    targetAudio.currentTime = pos * duration;
-    setCurrentTime(pos * duration);
+    if (rect.width > 0) seekTo((e.clientX - rect.left) / rect.width);
+  };
+
+  const handleSeekKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (duration <= 0) return;
+    const step = e.key === 'ArrowRight' ? 5 : e.key === 'ArrowLeft' ? -5 : 0;
+    if (step === 0) return;
+    e.preventDefault();
+    seekTo((currentTime + step) / duration);
   };
 
   const formatTime = (secs: number) => {
@@ -187,12 +184,12 @@ function ParagraphControl({
             {isGenerating ? <Loader2 size={18} className="spinning loader-icon" /> : <Mic size={18} />}
           </button>
           <button
-            onClick={handlePlayPause}
+            onClick={() => void onPlay(index)}
             disabled={isGenerating || !paragraph.text.trim()}
             className="para-btn play-btn"
             title={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"} aria-label={isGenerated ? (isPlaying ? "Pause" : "Play/Resume") : "Generate and Play"}
           >
-            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+            {isGenerating ? <Loader2 size={18} className="spinning loader-icon" /> : isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
           <button
             onClick={() => onDelete(index)}
@@ -235,11 +232,22 @@ function ParagraphControl({
         {(isGenerated || isGenerating) && (
           <div className="local-timeline-container">
             <div className="local-time">{formatTime(currentTime)}</div>
-            <div className="local-progress-bar-wrapper" onClick={handleSeek}>
+            <div
+              className="local-progress-bar-wrapper"
+              role="slider"
+              tabIndex={duration > 0 ? 0 : -1}
+              aria-label={`Position in paragraph ${index + 1}`}
+              aria-valuemin={0}
+              aria-valuemax={Math.round(duration)}
+              aria-valuenow={Math.round(currentTime)}
+              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+              onClick={handleSeek}
+              onKeyDown={handleSeekKey}
+            >
               <div className="local-progress-bg">
                 <div
                   className="local-progress-fill"
-                  style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                  style={{ width: `${duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0}%` }}
                 />
               </div>
             </div>

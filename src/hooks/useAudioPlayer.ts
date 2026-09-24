@@ -8,20 +8,29 @@ import type { VoiceSettings } from './useVoiceSettings';
 
 type Timer = ReturnType<typeof setTimeout>;
 
-// Object URLs created for playback, released when the element ends, fails or is replaced.
-const objectUrls = new WeakMap<HTMLAudioElement, string>();
+/** The audio element that is loaded or playing, and the paragraph it belongs to. */
+interface Loaded {
+  audio: HTMLAudioElement;
+  index: number;
+  id: string;
+  text: string;
+  blob: Blob;
+  url: string;
+}
 
-function releaseObjectUrl(audio: HTMLAudioElement | null): void {
-  const url = audio ? objectUrls.get(audio) : undefined;
-  if (audio && url) {
-    URL.revokeObjectURL(url);
-    objectUrls.delete(audio);
-  }
+interface StartOptions {
+  /** Paragraphs that follow (Play All). */
+  queue?: number[];
+  global?: boolean;
+  /** Start position as a fraction of the paragraph (0..1). */
+  seek?: number;
 }
 
 /** Indexes of the paragraphs that contain text. */
 const playableIndexes = (paragraphs: { text: string }[]): number[] =>
   paragraphs.flatMap((p, i) => (p.text.trim() ? [i] : []));
+
+const isAbort = (error: unknown): boolean => error instanceof DOMException && error.name === 'AbortError';
 
 export const useAudioPlayer = (
   speechify: Pick<SpeechifyApi, 'paragraphs' | 'generateParagraphAudio' | 'setError'>,
@@ -36,10 +45,15 @@ export const useAudioPlayer = (
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGlobalMode, setIsGlobalMode] = useState(false);
 
-  const audioQueueRef = useRef<number[]>([]);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const isStoppingRef = useRef(false);
-  const paragraphGapTimeoutRef = useRef<Timer | null>(null);
+  const loadedRef = useRef<Loaded | null>(null);
+  const queueRef = useRef<number[]>([]);
+  const gapTimerRef = useRef<Timer | null>(null);
+  /**
+   * Every start, stop and reset gets a new session number. Whatever is still waiting for a download
+   * or an audio event checks its own number first, so a superseded playback can never start or
+   * chain on to the next paragraph.
+   */
+  const sessionRef = useRef(0);
 
   // Playback callbacks chain themselves from audio events, so they must always see the
   // latest paragraphs and functions instead of the render they were created in.
@@ -48,168 +62,226 @@ export const useAudioPlayer = (
     latest.current = { paragraphs, generateParagraphAudio, setError, useParagraphGap, paragraphGapPause };
   });
 
-  const getGlobalAudio = useCallback(() => currentAudioRef.current, []);
+  /** The audio of one paragraph, if it is loaded (playing or paused). */
+  const getAudioFor = useCallback(
+    (index: number): HTMLAudioElement | null => (loadedRef.current?.index === index ? loadedRef.current.audio : null),
+    [],
+  );
 
   const clearGapTimer = useCallback(() => {
-    if (paragraphGapTimeoutRef.current) clearTimeout(paragraphGapTimeoutRef.current);
-    paragraphGapTimeoutRef.current = null;
+    if (gapTimerRef.current) clearTimeout(gapTimerRef.current);
+    gapTimerRef.current = null;
   }, []);
 
-  const playNextInQueue = useCallback(async (startIndex: number | null = null): Promise<void> => {
-    if (isStoppingRef.current) return;
+  /** Stops and releases the loaded audio. */
+  const unload = useCallback(() => {
+    const loaded = loadedRef.current;
+    loadedRef.current = null;
+    if (!loaded) return;
+    loaded.audio.onended = null;
+    loaded.audio.onerror = null;
+    loaded.audio.onloadedmetadata = null;
+    loaded.audio.pause();
+    URL.revokeObjectURL(loaded.url);
+  }, []);
 
-    let nextIndex: number;
-    if (startIndex !== null) {
-      nextIndex = startIndex;
-    } else {
-      const queued = audioQueueRef.current.shift();
-      if (queued === undefined) {
-        setIsPlaying(false);
-        return;
-      }
-      nextIndex = queued;
-    }
+  const finish = useCallback(() => {
+    unload();
+    clearGapTimer();
+    queueRef.current = [];
+    setIsPlaying(false);
+    setIsGlobalMode(false);
+    setActiveIndex(-1);
+  }, [unload, clearGapTimer]);
 
-    setActiveIndex(nextIndex);
+  /** Plays the paragraph, then (Play All) the ones that follow. */
+  const playIndex = useCallback(async (index: number, session: number, seek?: number): Promise<void> => {
+    if (session !== sessionRef.current) return;
+
+    setActiveIndex(index);
     setIsPlaying(true);
 
-    const paragraph = latest.current.paragraphs[nextIndex];
-    let audioBlob: Blob | null = paragraph?.audioBlob ?? null;
+    const advance = (): void => {
+      if (session !== sessionRef.current) return;
+      const next = queueRef.current.shift();
+      if (next === undefined) {
+        finish();
+        return;
+      }
+      const { useParagraphGap: gap, paragraphGapPause: pause } = latest.current;
+      if (gap && pause > 0) {
+        setActiveIndex(next); // shows which paragraph comes next while the pause runs
+        gapTimerRef.current = setTimeout(() => {
+          gapTimerRef.current = null;
+          void playIndex(next, session);
+        }, pause);
+      } else {
+        void playIndex(next, session);
+      }
+    };
 
-    // If already generated but blob not in memory, fetch it from the stored URL directly
-    if (!audioBlob && paragraph?.isGenerated && paragraph.audioUrl) {
+    const paragraph = latest.current.paragraphs[index];
+    let blob: Blob | null = paragraph?.audioBlob ?? null;
+
+    // Generated earlier but not in memory: fetch it from the stored URL.
+    if (!blob && paragraph?.isGenerated && paragraph.audioUrl) {
       try {
-        audioBlob = await fetchAudioBlob(paragraph.audioUrl);
+        blob = await fetchAudioBlob(paragraph.audioUrl);
       } catch (e) {
         console.error('Failed to fetch audio from URL, regenerating...', e);
       }
     }
-    audioBlob ??= await latest.current.generateParagraphAudio(nextIndex, false);
+    blob ??= await latest.current.generateParagraphAudio(index, false);
 
-    if (audioBlob && !isStoppingRef.current) {
-      try {
-        // Fades are already baked into the stored audio at generation time.
-        const url = URL.createObjectURL(audioBlob);
-        const audio = new Audio(url);
-        objectUrls.set(audio, url);
-
-        currentAudioRef.current = audio;
-
-        audio.onended = () => {
-          releaseObjectUrl(audio);
-          if (isStoppingRef.current) return;
-
-          if (audioQueueRef.current.length === 0) {
-            setIsPlaying(false);
-          } else if (latest.current.useParagraphGap && latest.current.paragraphGapPause > 0) {
-            paragraphGapTimeoutRef.current = setTimeout(() => void playNextInQueue(), latest.current.paragraphGapPause);
-          } else {
-            void playNextInQueue();
-          }
-        };
-
-        audio.onerror = () => {
-          releaseObjectUrl(audio);
-          latest.current.setError(`Error playing paragraph ${nextIndex + 1}`);
-          if (!isStoppingRef.current) void playNextInQueue();
-        };
-
-        // Pre-generate the next paragraph (only if truly not generated and not in storage)
-        const upcomingIndex = audioQueueRef.current[0];
-        if (upcomingIndex !== undefined && !isStoppingRef.current) {
-          const upcoming = latest.current.paragraphs[upcomingIndex];
-          if (upcoming && !upcoming.isGenerated && !upcoming.audioUrl) {
-            void latest.current.generateParagraphAudio(upcomingIndex, false);
-          }
-        }
-
-        await audio.play();
-      } catch (err) {
-        latest.current.setError(`Failed to play audio: ${getErrorMessage(err)}`);
-        releaseObjectUrl(currentAudioRef.current);
-        if (!isStoppingRef.current) void playNextInQueue();
-      }
-    } else if (!isStoppingRef.current) {
-      void playNextInQueue();
+    if (session !== sessionRef.current) return;
+    const current = latest.current.paragraphs[index];
+    if (!blob || !current) {
+      advance();
+      return;
     }
-  }, []);
+
+    unload();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    loadedRef.current = { audio, index, id: current.id, text: current.text, blob, url };
+
+    audio.onloadedmetadata = () => {
+      if (seek !== undefined && Number.isFinite(audio.duration)) audio.currentTime = seek * audio.duration;
+    };
+    audio.onended = () => {
+      if (session !== sessionRef.current) return;
+      unload();
+      advance();
+    };
+    audio.onerror = () => {
+      if (session !== sessionRef.current) return;
+      latest.current.setError(`Error playing paragraph ${index + 1}`);
+      unload();
+      advance();
+    };
+
+    // Pre-generate the next paragraph so Play All does not wait between paragraphs.
+    const upcomingIndex = queueRef.current[0];
+    if (upcomingIndex !== undefined) {
+      const upcoming = latest.current.paragraphs[upcomingIndex];
+      if (upcoming && !upcoming.isGenerated && !upcoming.audioUrl) void latest.current.generateParagraphAudio(upcomingIndex, false);
+    }
+
+    try {
+      await audio.play();
+    } catch (err) {
+      // Pausing while the audio starts rejects play() with an AbortError; that is not a failure.
+      if (session !== sessionRef.current || isAbort(err)) return;
+      latest.current.setError(`Failed to play audio: ${getErrorMessage(err)}`);
+      unload();
+      advance();
+    }
+  }, [finish, unload]);
+
+  /** Starts a new playback and replaces whatever plays now. */
+  const start = useCallback((index: number, { queue = [], global = false, seek }: StartOptions = {}) => {
+    sessionRef.current += 1;
+    unload();
+    clearGapTimer();
+    queueRef.current = queue;
+    setIsGlobalMode(global);
+    void playIndex(index, sessionRef.current, seek);
+  }, [playIndex, unload, clearGapTimer]);
+
+  const pause = useCallback(() => {
+    clearGapTimer();
+    const audio = loadedRef.current?.audio;
+    if (audio) {
+      audio.pause();
+    } else {
+      sessionRef.current += 1; // nothing is playing yet (loading or waiting): cancel what is pending
+    }
+    setIsPlaying(false);
+  }, [clearGapTimer]);
+
+  /** Continues a paused playback where it stopped. */
+  const resume = useCallback(async () => {
+    const audio = loadedRef.current?.audio;
+    if (!audio) {
+      // It was paused before the audio was ready: start that paragraph again with its queue.
+      sessionRef.current += 1;
+      void playIndex(activeIndex, sessionRef.current);
+      return;
+    }
+    setIsPlaying(true);
+    try {
+      await audio.play();
+    } catch (err) {
+      if (isAbort(err)) return;
+      setIsPlaying(false);
+      setError(`Failed to play audio: ${getErrorMessage(err)}`);
+    }
+  }, [activeIndex, playIndex, setError]);
 
   const handlePlayParagraph = useCallback(async (index: number) => {
     if (activeIndex === index) {
-      if (isPlaying) {
-        // Pause current
-        currentAudioRef.current?.pause();
-        setIsPlaying(false);
-        isStoppingRef.current = true;
-      } else {
-        // Resume current
-        isStoppingRef.current = false;
-        if (currentAudioRef.current) {
-          await currentAudioRef.current.play();
-          setIsPlaying(true);
-        } else {
-          // Play fresh
-          setIsGlobalMode(false);
-          audioQueueRef.current = [];
-          void playNextInQueue(index);
-        }
-      }
-    } else {
-      // Play a different paragraph locally
-      isStoppingRef.current = false;
-      currentAudioRef.current?.pause();
-      clearGapTimer();
-      setIsGlobalMode(false);
-      audioQueueRef.current = [];
-      void playNextInQueue(index);
+      if (isPlaying) pause();
+      else await resume();
+      return;
     }
-  }, [activeIndex, isPlaying, playNextInQueue, clearGapTimer]);
+    start(index);
+  }, [activeIndex, isPlaying, pause, resume, start]);
 
   const handlePlayAll = useCallback(() => {
     if (isGlobalMode && isPlaying) {
-      // Pause Play All
-      currentAudioRef.current?.pause();
-      setIsPlaying(false);
-      isStoppingRef.current = true;
-    } else if (isGlobalMode && !isPlaying && activeIndex !== -1) {
-      // Resume Play All
-      isStoppingRef.current = false;
-      if (currentAudioRef.current) {
-        void currentAudioRef.current.play();
-        setIsPlaying(true);
-      } else {
-        void playNextInQueue(activeIndex);
-      }
+      pause();
+    } else if (isGlobalMode && activeIndex !== -1) {
+      void resume();
     } else {
-      // Start Play All from beginning
-      isStoppingRef.current = false;
-      currentAudioRef.current?.pause();
-      clearGapTimer();
-
       const [first, ...rest] = playableIndexes(paragraphs);
       if (first === undefined) {
         setError('No paragraphs to play!');
         return;
       }
-
-      setIsGlobalMode(true);
-      audioQueueRef.current = rest;
-      void playNextInQueue(first);
+      start(first, { queue: rest, global: true });
     }
-  }, [isGlobalMode, isPlaying, activeIndex, paragraphs, playNextInQueue, setError, clearGapTimer]);
+  }, [isGlobalMode, isPlaying, activeIndex, paragraphs, pause, resume, start, setError]);
 
   const skipToParagraph = useCallback((index: number) => {
     const [first, ...rest] = playableIndexes(paragraphs).filter((i) => i >= index);
     if (first === undefined) return;
+    start(first, { queue: rest, global: true });
+  }, [paragraphs, start]);
 
-    isStoppingRef.current = false;
-    currentAudioRef.current?.pause();
+  /** Jumps to a position (0..1) in a paragraph; a paragraph that is not loaded starts from there. */
+  const seekParagraph = useCallback((index: number, fraction: number) => {
+    const position = Math.max(0, Math.min(1, fraction));
+    const audio = getAudioFor(index);
+    if (audio) {
+      if (Number.isFinite(audio.duration)) audio.currentTime = position * audio.duration;
+      return;
+    }
+    const paragraph = paragraphs[index];
+    if (paragraph?.isGenerated) start(index, { seek: position });
+  }, [getAudioFor, paragraphs, start]);
+
+  // Audio that no longer matches its paragraph (text edited, regenerated, paragraph moved or deleted) must not go on.
+  useEffect(() => {
+    const loaded = loadedRef.current;
+    if (!loaded) return;
+    const paragraph = paragraphs[loaded.index];
+    const changed = paragraph === undefined
+      ? true
+      : paragraph.id !== loaded.id
+        || paragraph.text !== loaded.text
+        || (paragraph.audioBlob !== null && paragraph.audioBlob !== loaded.blob);
+    if (changed) {
+      sessionRef.current += 1;
+      finish();
+    }
+  }, [paragraphs, finish]);
+
+  // Leaving the page must stop the sound.
+  useEffect(() => () => {
+    sessionRef.current += 1;
+    unload();
     clearGapTimer();
-
-    setIsGlobalMode(true);
-    audioQueueRef.current = rest;
-    void playNextInQueue(first);
-  }, [paragraphs, playNextInQueue, clearGapTimer]);
+  }, [unload, clearGapTimer]);
 
   const handleExportAll = useCallback(async () => {
     if (paragraphs.length === 0) {
@@ -282,29 +354,22 @@ export const useAudioPlayer = (
   }, [paragraphs, generateParagraphAudio, setError, setIsLoading, showConfirm, useFadeTransitions, useParagraphGap, paragraphGapPause]);
 
   const resetAudioPlayer = useCallback(() => {
-    isStoppingRef.current = true;
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      releaseObjectUrl(currentAudioRef.current);
-      currentAudioRef.current = null;
-    }
-    clearGapTimer();
-    audioQueueRef.current = [];
-    setActiveIndex(-1);
-    setIsPlaying(false);
-    setIsGlobalMode(false);
-  }, [clearGapTimer]);
+    sessionRef.current += 1;
+    finish();
+  }, [finish]);
 
   return {
     isPlayingAll: isGlobalMode && isPlaying,
+    isPausedAll: isGlobalMode && !isPlaying && activeIndex !== -1,
     currentPlayingIndex: activeIndex,
     isPlaying,
     handlePlayParagraph,
     handlePlayAll,
     skipToParagraph,
+    seekParagraph,
     handleExportAll,
     resetAudioPlayer,
-    getGlobalAudio,
+    getAudioFor,
   };
 };
 

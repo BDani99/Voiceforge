@@ -246,7 +246,34 @@
   height: 100%;
   background: linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%);
   border-radius: 2px;
-  transition: width 0.1s linear;
+}
+
+/* Handle at the current position */
+.local-progress-fill::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.8);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.local-progress-bar-wrapper:hover .local-progress-fill::after,
+.local-progress-bar-wrapper:focus-visible .local-progress-fill::after,
+.paragraph-box.playing .local-progress-fill::after {
+  opacity: 1;
+}
+
+.local-progress-bar-wrapper:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  border-radius: 4px;
 }
 
 /* Skeleton Loading overlay for textarea when generating */

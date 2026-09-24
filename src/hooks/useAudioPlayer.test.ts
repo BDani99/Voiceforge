@@ -12,13 +12,17 @@ class FakeAudio {
   static instances: FakeAudio[] = [];
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  onloadedmetadata: (() => void) | null = null;
   paused = true;
+  currentTime = 0;
+  duration = 10;
   constructor(public src: string) {
     FakeAudio.instances.push(this);
   }
+  static playResult: () => Promise<void> = () => Promise.resolve();
   play = vi.fn(() => {
     this.paused = false;
-    return Promise.resolve();
+    return FakeAudio.playResult();
   });
   pause = vi.fn(() => {
     this.paused = true;
@@ -69,6 +73,7 @@ const current = () => FakeAudio.instances[FakeAudio.instances.length - 1]!;
 
 beforeEach(() => {
   FakeAudio.instances = [];
+  FakeAudio.playResult = () => Promise.resolve();
   vi.stubGlobal('Audio', FakeAudio);
   URL.createObjectURL = vi.fn(() => 'blob:fake');
   URL.revokeObjectURL = vi.fn();
@@ -164,14 +169,15 @@ describe('handlePlayAll', () => {
   });
 
   it('uses the latest paragraphs when a clip ends (regression: it used a stale render)', async () => {
+    const first = paragraph('a', 'One');
     const { result, rerender, props, generateParagraphAudio } = setup({
-      paragraphs: [paragraph('a', 'One'), paragraph('b', 'Two', null)],
+      paragraphs: [first, paragraph('b', 'Two', null)],
     });
 
     act(() => result.current.handlePlayAll());
     await flush();
     // While the first clip plays, the second paragraph finishes generating elsewhere.
-    rerender({ ...props, paragraphs: [paragraph('a', 'One'), paragraph('b', 'Two', new Blob(['ready']))] });
+    rerender({ ...props, paragraphs: [first, paragraph('b', 'Two', new Blob(['ready']))] });
     generateParagraphAudio.mockClear();
 
     await act(async () => current().finish());
@@ -231,7 +237,7 @@ describe('single paragraph and skipping', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake');
     expect(result.current.currentPlayingIndex).toBe(-1);
     expect(result.current.isPlaying).toBe(false);
-    expect(result.current.getGlobalAudio()).toBeNull();
+    expect(result.current.getAudioFor(0)).toBeNull();
   });
 
   it('reports a playback error and moves on', async () => {
@@ -244,6 +250,166 @@ describe('single paragraph and skipping', () => {
 
     expect(setError).toHaveBeenCalledWith('Error playing paragraph 1');
     expect(result.current.currentPlayingIndex).toBe(1);
+  });
+});
+
+describe('pause, resume and end', () => {
+  it('reports a paused Play All and resumes it where it stopped', async () => {
+    const { result } = setup();
+    act(() => result.current.handlePlayAll());
+    await flush();
+    act(() => result.current.handlePlayAll());
+    expect(result.current.isPausedAll).toBe(true);
+    expect(result.current.isPlayingAll).toBe(false);
+
+    act(() => result.current.handlePlayAll());
+    expect(result.current.isPausedAll).toBe(false);
+    expect(result.current.isPlayingAll).toBe(true);
+    expect(FakeAudio.instances).toHaveLength(1); // the same clip continues
+  });
+
+  it('starts Play All from the beginning after it has finished (not just the last paragraph)', async () => {
+    const { result } = setup();
+    act(() => result.current.handlePlayAll());
+    await flush();
+    await act(async () => current().finish());
+    await flush();
+    await act(async () => current().finish());
+    await flush();
+    expect(result.current.isPausedAll).toBe(false);
+    expect(result.current.currentPlayingIndex).toBe(-1);
+
+    act(() => result.current.handlePlayAll());
+    await flush();
+    expect(result.current.currentPlayingIndex).toBe(0);
+    expect(result.current.isPlayingAll).toBe(true);
+  });
+
+  it('plays a paragraph again after it has ended', async () => {
+    const { result } = setup();
+    await act(async () => { await result.current.handlePlayParagraph(0); });
+    await flush();
+    await act(async () => current().finish());
+    await flush();
+    expect(result.current.isPlaying).toBe(false);
+
+    await act(async () => { await result.current.handlePlayParagraph(0); });
+    await flush();
+    expect(result.current.isPlaying).toBe(true);
+    expect(FakeAudio.instances).toHaveLength(2);
+  });
+
+  it('does not start audio that was paused while it was still being generated, and resumes it later', async () => {
+    let release: (blob: Blob) => void = () => undefined;
+    const pending = new Promise<Blob>((resolve) => { release = resolve; });
+    const { result, generateParagraphAudio } = setup({ paragraphs: [paragraph('a', 'One', null)] });
+    generateParagraphAudio.mockReturnValueOnce(pending);
+
+    act(() => result.current.handlePlayAll());
+    await flush();
+    act(() => result.current.handlePlayAll()); // pause while generating
+    await act(async () => { release(new Blob(['late'])); await pending; });
+    await flush();
+    expect(FakeAudio.instances).toHaveLength(0);
+    expect(result.current.isPlaying).toBe(false);
+
+    act(() => result.current.handlePlayAll()); // resume
+    await flush();
+    expect(FakeAudio.instances).toHaveLength(1);
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('never plays two paragraphs at once when another one is started while the first is loading', async () => {
+    let release: (blob: Blob) => void = () => undefined;
+    const pending = new Promise<Blob>((resolve) => { release = resolve; });
+    const { result, generateParagraphAudio } = setup({ paragraphs: [paragraph('a', 'One', null), paragraph('b', 'Two')] });
+    generateParagraphAudio.mockReturnValueOnce(pending);
+
+    act(() => { void result.current.handlePlayParagraph(0); });
+    await flush();
+    await act(async () => { await result.current.handlePlayParagraph(1); });
+    await flush();
+    await act(async () => { release(new Blob(['late'])); await pending; });
+    await flush();
+
+    expect(FakeAudio.instances).toHaveLength(1);
+    expect(result.current.currentPlayingIndex).toBe(1);
+  });
+
+  it('does not treat a play() that was interrupted by pausing as an error', async () => {
+    FakeAudio.playResult = () => Promise.reject(new DOMException('interrupted', 'AbortError'));
+    const { result, setError } = setup();
+    act(() => result.current.handlePlayAll());
+    await flush();
+    expect(setError).not.toHaveBeenCalled();
+  });
+
+  it('reports a real play() failure', async () => {
+    FakeAudio.playResult = () => Promise.reject(new DOMException('not allowed', 'NotAllowedError'));
+    const { result, setError } = setup({ paragraphs: [paragraph('a', 'One')] });
+    act(() => result.current.handlePlayAll());
+    await flush();
+    expect(setError).toHaveBeenCalledWith(expect.stringContaining('Failed to play audio'));
+    expect(result.current.isPlaying).toBe(false);
+  });
+
+  it('stops when the text of the playing paragraph changes', async () => {
+    const { result, rerender, props } = setup();
+    await act(async () => { await result.current.handlePlayParagraph(0); });
+    await flush();
+
+    rerender({ ...props, paragraphs: [{ ...paragraph('a', 'One, edited'), isGenerated: false, audioBlob: null }, paragraph('b', 'Two')] });
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.currentPlayingIndex).toBe(-1);
+    expect(current().pause).toHaveBeenCalled();
+  });
+
+  it('stops when the paragraph was regenerated', async () => {
+    const { result, rerender, props } = setup();
+    await act(async () => { await result.current.handlePlayParagraph(0); });
+    await flush();
+
+    rerender({ ...props, paragraphs: [paragraph('a', 'One', new Blob(['new audio'])), paragraph('b', 'Two')] });
+    expect(result.current.isPlaying).toBe(false);
+  });
+
+  it('stops the sound when the page is left', async () => {
+    const { result, unmount } = setup();
+    await act(async () => { await result.current.handlePlayParagraph(0); });
+    await flush();
+    unmount();
+    expect(current().pause).toHaveBeenCalled();
+  });
+});
+
+describe('position of a paragraph', () => {
+  it('only exposes the audio of the paragraph that is loaded', async () => {
+    const { result } = setup();
+    await act(async () => { await result.current.handlePlayParagraph(1); });
+    await flush();
+    expect(result.current.getAudioFor(1)).toBe(current());
+    expect(result.current.getAudioFor(0)).toBeNull();
+  });
+
+  it('seeks inside the loaded audio', async () => {
+    const { result } = setup();
+    await act(async () => { await result.current.handlePlayParagraph(0); });
+    await flush();
+
+    act(() => result.current.seekParagraph(0, 0.5));
+    expect(current().currentTime).toBe(5);
+    act(() => result.current.seekParagraph(0, 3)); // clamped
+    expect(current().currentTime).toBe(10);
+  });
+
+  it('starts a paragraph that is not loaded at the chosen position', async () => {
+    const { result } = setup();
+    act(() => result.current.seekParagraph(1, 0.25));
+    await flush();
+    expect(result.current.currentPlayingIndex).toBe(1);
+
+    act(() => current().onloadedmetadata?.());
+    expect(current().currentTime).toBe(2.5);
   });
 });
 

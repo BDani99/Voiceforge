@@ -80,36 +80,53 @@
 .segmented-progress-bar {
   display: flex;
   gap: 4px;
-  height: 6px;
-  border-radius: 3px;
-  overflow: hidden;
+  height: 10px;
   align-items: center;
 }
 
 .progress-segment {
   flex: 1;
-  height: 100%;
+  min-width: 4px;
+  height: 6px;
+  padding: 0;
+  border: 0;
   background: var(--bg-card);
   border-radius: 3px;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: height var(--transition-base);
   position: relative;
   overflow: hidden;
 }
 
-.progress-segment:hover {
-  height: 8px; /* Expand slightly on hover */
-  transform: translateY(-1px);
+.progress-segment:hover,
+.progress-segment:focus-visible {
+  height: 10px; /* Expand slightly on hover */
+  outline: none;
 }
 
-.segment-fill {
+.progress-segment:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.segment-fill,
+.segment-progress {
   position: absolute;
   top: 0;
   left: 0;
   height: 100%;
-  width: 100%;
   border-radius: 3px;
-  transition: all var(--transition-base);
+}
+
+.segment-fill {
+  width: 100%;
+  transition: background var(--transition-base);
+}
+
+/* How far the audio of the current paragraph has come */
+.segment-progress {
+  width: 0;
+  background: #a78bfa;
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.8);
 }
 
 /* Status colors */
@@ -126,21 +143,19 @@
   animation: pulse-generating 1.5s infinite alternate ease-in-out;
 }
 
-.progress-segment.playing .segment-fill {
-  background: #8b5cf6; /* Bright electric violet */
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.8);
-  animation: pulse-playing 2s infinite alternate ease-in-out;
+.progress-segment.playing .segment-fill,
+.progress-segment.paused .segment-fill {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+.progress-segment.paused .segment-progress {
+  opacity: 0.6;
 }
 
 /* Animations */
 @keyframes pulse-generating {
   0% { opacity: 0.4; }
   100% { opacity: 0.8; }
-}
-
-@keyframes pulse-playing {
-  0% { filter: brightness(1); }
-  100% { filter: brightness(1.4); box-shadow: 0 0 12px rgba(139, 92, 246, 1); }
 }
 
 /* Ensure right panel width doesn't overlap the playbar content */

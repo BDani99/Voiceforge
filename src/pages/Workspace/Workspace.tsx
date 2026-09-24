@@ -211,7 +211,8 @@ function Workspace() {
                         onClearEmotionRange={speechify.clearEmotionRange}
                         onClearHighlights={speechify.clearHighlights}
                         isFirstParagraph={index === 0}
-                        globalAudio={audioPlayer.getGlobalAudio}
+                        getAudio={audioPlayer.getAudioFor}
+                        onSeek={audioPlayer.seekParagraph}
                       />
                     ))}
                   </>
@@ -266,8 +267,11 @@ function Workspace() {
           paragraphs={speechify.paragraphs}
           totalParagraphs={totalParagraphs}
           isPlayingAll={audioPlayer.isPlayingAll}
+          isPausedAll={audioPlayer.isPausedAll}
+          isPlaying={audioPlayer.isPlaying}
           currentPlayingIndex={audioPlayer.currentPlayingIndex}
           generatingIndex={speechify.generatingIndex}
+          getAudioFor={audioPlayer.getAudioFor}
         />
       </div>
     </div>
