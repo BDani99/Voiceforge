@@ -1,6 +1,6 @@
-import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { SpeechServiceError } from './speechErrors';
+import { toServiceError } from './functionError';
 import { MAX_STREAM_CHARS, requestSpeechStream, type StreamCallbacks } from './speechStream';
 import { pcmToWav } from '../utils/pcm';
 import { buildSSML } from '../utils/ssml';
@@ -18,22 +18,6 @@ const MAX_CONCURRENT_REQUESTS = 2; // keeps Speechify from answering 429
 const MAX_CACHE_ENTRIES = 50;
 
 export { SpeechServiceError };
-
-/** Turns a supabase.functions.invoke error into a SpeechServiceError carrying the HTTP status. */
-async function toServiceError(error: Error): Promise<SpeechServiceError> {
-  if (error instanceof FunctionsHttpError) {
-    const response = error.context as Response;
-    let message = error.message;
-    try {
-      const body = (await response.clone().json()) as { error?: unknown };
-      if (typeof body.error === 'string') message = body.error;
-    } catch {
-      // body was not JSON, keep the generic message
-    }
-    return new SpeechServiceError(message, response.status);
-  }
-  return new SpeechServiceError(error.message || 'Network error');
-}
 
 function base64ToBlob(base64Data: string, contentType: string): Blob {
   try {

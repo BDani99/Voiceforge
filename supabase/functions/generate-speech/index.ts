@@ -46,6 +46,29 @@ let cachedVoices: { value: unknown; expiresAt: number } | null = null
 
 type AdminClient = ReturnType<typeof createClient>
 
+/**
+ * All VoiceForge users share one Speechify account, so the voices list pools every user's cloned
+ * ("personal") voices together. This keeps the shared (built-in) voices as they are and drops any
+ * personal voice that does not belong to the requesting user, using the ownership table the
+ * clone-voice function writes to. A voice this function cannot recognise the shape of is dropped.
+ */
+async function filterOwnPersonalVoices(admin: AdminClient, userId: string, voices: unknown): Promise<unknown> {
+  if (!Array.isArray(voices)) return voices
+
+  const isPersonal = (voice: unknown): voice is { id: string; type: string } =>
+    typeof voice === 'object' && voice !== null && 'id' in voice && 'type' in voice
+    && typeof (voice as { id: unknown }).id === 'string' && (voice as { type: unknown }).type === 'personal'
+
+  const hasPersonalVoices = voices.some(isPersonal)
+  if (!hasPersonalVoices) return voices
+
+  const { data, error } = await admin.from('cloned_voices').select('speechify_voice_id').eq('user_id', userId)
+  if (error) console.error('Failed to load owned cloned voices:', error)
+  const owned = new Set((data ?? []).map((row) => row.speechify_voice_id))
+
+  return voices.filter((voice) => !isPersonal(voice) || owned.has(voice.id))
+}
+
 /** Turns a reservation into a charge. If this fails it is retried; what still fails is refunded by the scheduled reconciliation. */
 async function settleReservation(admin: AdminClient, reservationId: string): Promise<void> {
   for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
@@ -203,17 +226,19 @@ Deno.serve(async (req) => {
 
     // 2. GET: list voices
     if (req.method === 'GET') {
-      if (cachedVoices && cachedVoices.expiresAt > Date.now()) return json(req, cachedVoices.value)
-
-      const voicesRes = await fetch(`${SPEECHIFY_BASE}/voices`, {
-        headers: { 'Authorization': `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      })
-      if (!voicesRes.ok) return json(req, { error: 'Failed to load voices' }, 502)
-
-      const voices = await voicesRes.json()
-      cachedVoices = { value: voices, expiresAt: Date.now() + 10 * 60 * 1000 }
-      return json(req, voices)
+      let voices: unknown
+      if (cachedVoices && cachedVoices.expiresAt > Date.now()) {
+        voices = cachedVoices.value
+      } else {
+        const voicesRes = await fetch(`${SPEECHIFY_BASE}/voices`, {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        })
+        if (!voicesRes.ok) return json(req, { error: 'Failed to load voices' }, 502)
+        voices = await voicesRes.json()
+        cachedVoices = { value: voices, expiresAt: Date.now() + 10 * 60 * 1000 }
+      }
+      return json(req, await filterOwnPersonalVoices(admin, user.id, voices))
     }
 
     // 3. POST: validate

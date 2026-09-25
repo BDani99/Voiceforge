@@ -149,6 +149,9 @@ export const genderLabel = (gender: string | undefined): string => {
   return '';
 };
 
+/** A voice cloned with Instant Voice Cloning (only ever sent to the user who cloned it). */
+export const isClonedVoice = (voice: Voice | undefined): boolean => voice?.type === 'personal';
+
 const ACRONYMS = new Set(['ai', 'ivr', 'tv', 'tts', 'asmr']);
 
 /** "use-case:customer-service-ivr" to "Customer service IVR". */

@@ -118,6 +118,14 @@
   background: rgba(99, 102, 241, 0.16);
 }
 
+.vp-chip--cloned {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #f0abfc;
+  background: rgba(217, 70, 239, 0.16);
+}
+
 .vp-sample {
   flex-shrink: 0;
   width: 34px;

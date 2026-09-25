@@ -21,6 +21,8 @@ export interface Voice {
   preview_audio?: string | null;
   tags?: string[] | null;
   models?: VoiceModel[];
+  /** "personal" for a voice cloned in this account (only the cloning user's own are ever sent to them). */
+  type?: string;
 }
 
 export interface Paragraph {

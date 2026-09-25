@@ -38,6 +38,47 @@ export type Database = {
         }
         Relationships: []
       }
+      cloned_voices: {
+        Row: {
+          consent_challenge_id: string
+          created_at: string
+          display_name: string
+          gender: string
+          id: string
+          locale: string | null
+          speechify_voice_id: string
+          user_id: string
+        }
+        Insert: {
+          consent_challenge_id: string
+          created_at?: string
+          display_name: string
+          gender: string
+          id?: string
+          locale?: string | null
+          speechify_voice_id: string
+          user_id: string
+        }
+        Update: {
+          consent_challenge_id?: string
+          created_at?: string
+          display_name?: string
+          gender?: string
+          id?: string
+          locale?: string | null
+          speechify_voice_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cloned_voices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_reservations: {
         Row: {
           amount: number

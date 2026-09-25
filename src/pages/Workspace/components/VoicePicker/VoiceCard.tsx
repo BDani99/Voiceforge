@@ -1,5 +1,5 @@
-import { ChevronRight } from 'lucide-react';
-import { genderLabel, localeLabel, modelLabel, voiceUseCases, voiceName } from '../../../../utils/voices';
+import { ChevronRight, Sparkles } from 'lucide-react';
+import { genderLabel, isClonedVoice, localeLabel, modelLabel, voiceUseCases, voiceName } from '../../../../utils/voices';
 import type { PreviewPlayer } from '../../../../hooks/usePreviewPlayer';
 import type { Voice } from '../../../../types/models';
 import SampleButton from './SampleButton';
@@ -40,6 +40,9 @@ export default function VoiceCard({ voice, language, model, isLoading, disabled 
               <span className="vc__details">{details}</span>
               <span className="vc__chips">
                 <span className="vp-chip vp-chip--model">{modelLabel(model)}</span>
+                {isClonedVoice(voice) && (
+                  <span className="vp-chip vp-chip--cloned"><Sparkles size={11} aria-hidden="true" /> Cloned</span>
+                )}
                 {tags.map((tag) => <span key={tag} className="vp-chip">{tag}</span>)}
               </span>
             </>

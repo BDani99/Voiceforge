@@ -8,6 +8,7 @@ import './AdminSettings.css';
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
     default_credits: '10000',
+    voice_clone_cost: '5000',
     announcement: ''
   });
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,7 @@ export default function AdminSettings() {
         const next = { ...prev };
         data.forEach(item => {
           if (item.key === 'default_credits') next.default_credits = item.value;
+          if (item.key === 'voice_clone_cost') next.voice_clone_cost = item.value;
           if (item.key === 'announcement') next.announcement = item.value;
         });
         return next;
@@ -43,11 +45,17 @@ export default function AdminSettings() {
       notify.warning('Starting credits must be a whole number, 0 or more.');
       return;
     }
+    const cloneCost = Number(settings.voice_clone_cost);
+    if (!Number.isInteger(cloneCost) || cloneCost < 0) {
+      notify.warning('Voice cloning cost must be a whole number, 0 or more.');
+      return;
+    }
 
     setSaving(true);
     try {
       const { error } = await supabase.from('system_settings').upsert([
         { key: 'default_credits', value: String(credits) },
+        { key: 'voice_clone_cost', value: String(cloneCost) },
         { key: 'announcement', value: settings.announcement.trim() },
       ]);
       if (error) throw error;
@@ -89,6 +97,32 @@ export default function AdminSettings() {
               />
               <p className="help-text">
                 Number of characters granted automatically to every newly registered user. Existing accounts are not changed.
+              </p>
+            </div>
+            <button type="submit" disabled={saving} className="save-btn">
+              <Save size={18} /> {saving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </form>
+        </div>
+
+        <div className="settings-card">
+          <div className="card-header">
+            <Settings2 className="icon" size={24} />
+            <h3>Voice Cloning</h3>
+          </div>
+          <form onSubmit={saveSettings} className="settings-form">
+            <div className="form-group">
+              <label>Cost per cloned voice (credits)</label>
+              <input aria-label="e.g., 5000"
+                type="number"
+                value={settings.voice_clone_cost}
+                onChange={(e) => setSettings({...settings, voice_clone_cost: e.target.value})}
+                placeholder="e.g., 5000"
+                min="0"
+                className="number-input"
+              />
+              <p className="help-text">
+                Characters charged when a user creates an Instant Voice Cloning voice. Shown to the user before they confirm.
               </p>
             </div>
             <button type="submit" disabled={saving} className="save-btn">

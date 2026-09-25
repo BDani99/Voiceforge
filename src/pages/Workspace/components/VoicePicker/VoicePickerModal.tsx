@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Search, X } from 'lucide-react';
+import { Check, Search, Sparkles, X } from 'lucide-react';
 import Modal from '../../../../components/Modal/Modal';
 import CustomSelect from '../../../../components/CustomSelect/CustomSelect';
 import type { PreviewPlayer } from '../../../../hooks/usePreviewPlayer';
@@ -8,6 +8,7 @@ import {
   MODEL_CATALOG,
   filterVoices,
   genderLabel,
+  isClonedVoice,
   languageOptions,
   localeLabel,
   modelLabel,
@@ -196,6 +197,9 @@ export default function VoicePickerModal({ isOpen, onClose, voices, selectedVoic
                       </span>
                       <span className="vp-row__chips">
                         {models.map((m) => <span key={m} className="vp-chip vp-chip--model">{modelLabel(m)}</span>)}
+                        {isClonedVoice(voice) && (
+                          <span className="vp-chip vp-chip--cloned"><Sparkles size={11} aria-hidden="true" /> Cloned</span>
+                        )}
                         {voiceUseCases(voice).slice(0, 3).map((t) => <span key={t} className="vp-chip">{t}</span>)}
                       </span>
                     </span>

@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { lazy, useState, useEffect, useCallback, Suspense, type FormEvent } from 'react';
 import type { User as AuthUser } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notificationService';
 import { buildDailyUsage, computeUsageStats, type DailyUsage, type UsageStats } from '../../utils/usageStats';
 import { isPasswordBreached, validatePassword } from '../../utils/passwordPolicy';
+import { useVoiceCloning } from '../../hooks/useVoiceCloning';
 import type { Tables } from '../../types/aliases';
 import {
   User, ArrowLeft, Settings, Activity, Zap, TrendingUp,
   TrendingDown, Eye, EyeOff, Save, Key, Mail, Calendar,
-  BarChart3, Clock, FileText, Shield, AlertTriangle, Coins, LogOut
+  BarChart3, Clock, FileText, Shield, AlertTriangle, Coins, LogOut, Mic
 } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -21,6 +22,9 @@ import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import './Profile.css';
 
+// Pulls in MediaRecorder / getUserMedia handling, only needed once someone opens this tab.
+const MyClonedVoices = lazy(() => import('./VoiceCloning/MyClonedVoices'));
+
 type ProfileRow = Tables<'users_profile'>;
 type UsageLog = Pick<Tables<'usage_logs'>, 'id' | 'action_type' | 'character_count' | 'created_at' | 'reason' | 'language' | 'project_id'>;
 type LogWithProject = UsageLog & { projectTitle: string | null };
@@ -30,11 +34,13 @@ const ACTION_LABELS: Record<string, string> = {
   preview: 'Preview',
   admin_topup: 'Credit Top-up',
   admin_deduct: 'Credit Deduction',
+  voice_clone: 'Voice Cloning',
 };
 
 export default function Profile() {
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
-  const [activeTab, setActiveTab] = useState<'usage' | 'settings'>('usage');
+  const [activeTab, setActiveTab] = useState<'usage' | 'settings' | 'voices'>('usage');
+  const cloning = useVoiceCloning();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [logs, setLogs] = useState<LogWithProject[]>([]);
@@ -248,6 +254,13 @@ export default function Profile() {
           >
             <Settings size={18} />
             Settings
+          </button>
+          <button
+            className={`profile-tab ${activeTab === 'voices' ? 'active' : ''}`}
+            onClick={() => setActiveTab('voices')}
+          >
+            <Mic size={18} />
+            Voices
           </button>
         </div>
       </div>
@@ -496,6 +509,15 @@ export default function Profile() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* ── VOICES TAB ── */}
+        {activeTab === 'voices' && (
+          <div className="tab-content settings-tab">
+            <Suspense fallback={<LoadingScreen text="Loading..." />}>
+              <MyClonedVoices cloning={cloning} />
+            </Suspense>
           </div>
         )}
       </div>

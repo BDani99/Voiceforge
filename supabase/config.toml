@@ -6,3 +6,7 @@ project_id = "voiceforge"
 # Without this entry `supabase functions deploy` would switch it back on.
 [functions.generate-speech]
 verify_jwt = false
+
+# Same reason as generate-speech: authenticates itself and must answer CORS preflight.
+[functions.clone-voice]
+verify_jwt = false
