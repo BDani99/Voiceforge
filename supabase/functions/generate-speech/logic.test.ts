@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   StreamWatcher,
+  canUseVoice,
   countBillableCharacters,
+  filterPersonalVoices,
+  hasPersonalVoices,
   mapReserveError,
   mapSpeechifyStatus,
   MAX_INPUT_LENGTH,
@@ -143,5 +146,47 @@ describe('StreamWatcher', () => {
     expect(watcher.sawAudio).toBe(false)
     watcher.push(bytes('unk\ndata: {}\n\n'))
     expect(watcher.sawAudio).toBe(true)
+  })
+})
+
+describe('cloned voices: who may see and use them', () => {
+  const shared = { id: 'henry', type: 'shared' }
+  const mine = { id: 'mine', type: 'personal' }
+  const theirs = { id: 'theirs', type: 'personal' }
+
+  it('knows whether a list contains cloned voices at all', () => {
+    expect(hasPersonalVoices([shared, mine])).toBe(true)
+    expect(hasPersonalVoices([shared])).toBe(false)
+    expect(hasPersonalVoices([])).toBe(false)
+    expect(hasPersonalVoices('nope')).toBe(false)
+    expect(hasPersonalVoices([{ type: 'personal' }, null, 5])).toBe(false) // no usable id
+  })
+
+  it('keeps the whole catalog and only the cloned voices the user owns', () => {
+    expect(filterPersonalVoices([shared, mine, theirs], new Set(['mine']))).toEqual([shared, mine])
+  })
+
+  it('hides every cloned voice from a user who owns none (also when ownership could not be read)', () => {
+    expect(filterPersonalVoices([shared, mine, theirs], new Set())).toEqual([shared])
+  })
+
+  it('leaves the list alone when there is nothing to hide, and anything it does not understand', () => {
+    expect(filterPersonalVoices([shared], new Set())).toEqual([shared])
+    const odd = [shared, null, 'x', { id: 7, type: 'personal' }]
+    expect(filterPersonalVoices(odd, new Set())).toEqual(odd) // an unrecognisable shape never hides the catalog
+    expect(filterPersonalVoices({ not: 'a list' }, new Set())).toEqual({ not: 'a list' })
+  })
+
+  it('does not change the original list', () => {
+    const list = [shared, theirs]
+    filterPersonalVoices(list, new Set())
+    expect(list).toHaveLength(2)
+  })
+
+  it('lets a user use built-in voices and their own cloned voices, nobody else\'s', () => {
+    expect(canUseVoice(null, 'u1')).toBe(true) // no owner: a built-in voice
+    expect(canUseVoice(undefined, 'u1')).toBe(true)
+    expect(canUseVoice('u1', 'u1')).toBe(true)
+    expect(canUseVoice('u2', 'u1')).toBe(false)
   })
 })

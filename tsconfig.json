@@ -27,6 +27,8 @@
     "vite.config.ts",
     "config",
     "supabase/functions/generate-speech/logic.ts",
-    "supabase/functions/generate-speech/logic.test.ts"
+    "supabase/functions/generate-speech/logic.test.ts",
+    "supabase/functions/clone-voice/logic.ts",
+    "supabase/functions/clone-voice/logic.test.ts"
   ]
 }

@@ -91,6 +91,46 @@ export function resolveAllowedOrigin(requestOrigin: string, allowedOrigins: stri
   return allowedOrigins.includes(requestOrigin) ? requestOrigin : (allowedOrigins[0] ?? '*')
 }
 
+// ---------------------------------------------------------------------------
+// Cloned ("personal") voices
+//
+// All users share one Speechify account, so upstream lists every user's cloned voices together.
+// clone-voice records who owns which one; these helpers turn that into access rules.
+// ---------------------------------------------------------------------------
+
+interface PersonalVoice {
+  id: string
+  type: 'personal'
+}
+
+function isPersonalVoice(voice: unknown): voice is PersonalVoice {
+  return typeof voice === 'object' && voice !== null
+    && typeof (voice as { id?: unknown }).id === 'string'
+    && (voice as { type?: unknown }).type === 'personal'
+}
+
+/** Whether a voices response contains any cloned voice (only then is the ownership table needed). */
+export function hasPersonalVoices(voices: unknown): boolean {
+  return Array.isArray(voices) && voices.some(isPersonalVoice)
+}
+
+/**
+ * Keeps every shared (built-in) voice and only those cloned voices the user owns. Anything that is
+ * not a recognisable cloned voice is left alone, so a change in the upstream format cannot hide the catalog.
+ */
+export function filterPersonalVoices(voices: unknown, ownedVoiceIds: ReadonlySet<string>): unknown {
+  if (!Array.isArray(voices)) return voices
+  return voices.filter((voice) => !isPersonalVoice(voice) || ownedVoiceIds.has(voice.id))
+}
+
+/**
+ * Whether a user may synthesize with a voice. A voice with a recorded owner belongs to that user
+ * alone; a voice nobody owns (a built-in one) is open to everyone.
+ */
+export function canUseVoice(ownerUserId: string | null | undefined, userId: string): boolean {
+  return !ownerUserId || ownerUserId === userId
+}
+
 export interface HttpFailure {
   status: number
   message: string

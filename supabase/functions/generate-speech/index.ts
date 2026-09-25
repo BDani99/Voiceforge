@@ -1,9 +1,12 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.107.0'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.107.0'
 import {
   MAX_REQUESTS_PER_MINUTE,
   STREAM_OUTPUT_FORMAT,
   StreamWatcher,
   type GenerateRequest,
+  canUseVoice,
+  filterPersonalVoices,
+  hasPersonalVoices,
   mapReserveError,
   mapSpeechifyStatus,
   parseGenerateRequest,
@@ -44,29 +47,19 @@ function json(req: Request, body: unknown, status = 200): Response {
 
 let cachedVoices: { value: unknown; expiresAt: number } | null = null
 
-type AdminClient = ReturnType<typeof createClient>
+type AdminClient = SupabaseClient
 
 /**
  * All VoiceForge users share one Speechify account, so the voices list pools every user's cloned
- * ("personal") voices together. This keeps the shared (built-in) voices as they are and drops any
- * personal voice that does not belong to the requesting user, using the ownership table the
- * clone-voice function writes to. A voice this function cannot recognise the shape of is dropped.
+ * ("personal") voices together. The ownership table that clone-voice writes decides which of them
+ * this user may see. If it cannot be read, no cloned voice is shown (fail closed).
  */
 async function filterOwnPersonalVoices(admin: AdminClient, userId: string, voices: unknown): Promise<unknown> {
-  if (!Array.isArray(voices)) return voices
-
-  const isPersonal = (voice: unknown): voice is { id: string; type: string } =>
-    typeof voice === 'object' && voice !== null && 'id' in voice && 'type' in voice
-    && typeof (voice as { id: unknown }).id === 'string' && (voice as { type: unknown }).type === 'personal'
-
-  const hasPersonalVoices = voices.some(isPersonal)
-  if (!hasPersonalVoices) return voices
+  if (!hasPersonalVoices(voices)) return voices
 
   const { data, error } = await admin.from('cloned_voices').select('speechify_voice_id').eq('user_id', userId)
   if (error) console.error('Failed to load owned cloned voices:', error)
-  const owned = new Set((data ?? []).map((row) => row.speechify_voice_id))
-
-  return voices.filter((voice) => !isPersonal(voice) || owned.has(voice.id))
+  return filterPersonalVoices(voices, new Set((data ?? []).map((row) => row.speechify_voice_id)))
 }
 
 /** Turns a reservation into a charge. If this fails it is retried; what still fails is refunded by the scheduled reconciliation. */
@@ -252,6 +245,19 @@ Deno.serve(async (req) => {
     const parsed = parseGenerateRequest(body)
     if (!parsed.ok) return json(req, { error: parsed.error }, 400)
     const request = parsed.value
+
+    // A cloned voice belongs to the user who cloned it: nobody else may synthesize with it, even if they
+    // know its id. Checked before any credit is reserved. Built-in voices have no owner row.
+    const { data: voiceOwner, error: ownerError } = await admin
+      .from('cloned_voices')
+      .select('user_id')
+      .eq('speechify_voice_id', request.voiceId)
+      .maybeSingle()
+    if (ownerError) {
+      console.error('Failed to check the owner of the voice:', ownerError)
+      return json(req, { error: 'Internal server error' }, 500)
+    }
+    if (!canUseVoice(voiceOwner?.user_id, user.id)) return json(req, { error: 'Voice not available' }, 403)
 
     // Only attach the project to the log if it really belongs to the caller.
     let projectId: string | null = null

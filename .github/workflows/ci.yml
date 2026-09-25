@@ -35,5 +35,5 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check the Edge Function (strict)
-        run: deno check supabase/functions/generate-speech/index.ts
+      - name: Type-check the Edge Functions (strict)
+        run: deno check supabase/functions/generate-speech/index.ts supabase/functions/clone-voice/index.ts

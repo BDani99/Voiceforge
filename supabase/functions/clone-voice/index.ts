@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.107.0'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.107.0'
 import {
   MAX_REQUESTS_PER_MINUTE,
   describeCloneFailure,
@@ -34,7 +34,7 @@ function json(req: Request, body: unknown, status = 200): Response {
   })
 }
 
-type AdminClient = ReturnType<typeof createClient>
+type AdminClient = SupabaseClient
 
 /** The character cost of one cloned voice, from system_settings (falls back to a fixed default). */
 async function cloneCost(admin: AdminClient): Promise<number> {

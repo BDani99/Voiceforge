@@ -82,7 +82,7 @@ export function validateCloneFields(fields: Partial<CloneFields>): ParseResult<C
       name: name.trim(),
       consentChallengeId: consentChallengeId.trim(),
       gender,
-      locale: locale && locale.trim() ? locale.trim() : null,
+      locale: locale?.trim() ? locale.trim() : null,
       sampleBytes,
       sampleType,
       consentBytes,

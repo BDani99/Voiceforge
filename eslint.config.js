@@ -5,8 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  // The Edge Function entry point targets Deno; it is checked with `deno check` instead.
-  { ignores: ['dist', 'coverage', 'supabase/functions/generate-speech/index.ts', 'src/types/database.ts'] },
+  // The Edge Function entry points target Deno; they are checked with `deno check` instead.
+  { ignores: ['dist', 'coverage', 'supabase/functions/*/index.ts', 'src/types/database.ts'] },
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
