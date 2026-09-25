@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Download, RefreshCw, ArrowLeft, ChevronDown, FileText, Music } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, ChevronDown, FileText, Music } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import BrandMark from '../BrandMark/BrandMark';
 import './Header.css';
 
 export type ExportKind = 'audio' | 'srt' | 'vtt';
@@ -55,7 +56,7 @@ function Header({ onExport, handleResetAll, isLoading, totalParagraphs }: Header
           <ArrowLeft size={20} />
         </button>
         <div className="logo">
-          <Sparkles size={32} />
+          <BrandMark size={30} />
           <h1>VoiceForge</h1>
         </div>
       </div>

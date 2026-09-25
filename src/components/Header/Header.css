@@ -1,21 +1,18 @@
-/* Sleek Glassmorphic Header */
+/* Top bar of the workspace and the dashboard */
+
 .app-header {
-  background: rgba(9, 14, 23, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--bg-app);
   border-bottom: 1px solid var(--border-light);
-  padding: var(--space-md) var(--space-xl);
+  padding: 0 var(--space-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: var(--shadow-sm);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: var(--header-height);
   z-index: 1000;
-  transition: all var(--transition-base);
 }
 
 .header-left {
@@ -25,91 +22,85 @@
 }
 
 .back-to-dashboard-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
-  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
   width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .back-to-dashboard-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
-  transform: translateX(-2px);
+  border-color: var(--border-hover);
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-}
-
-.logo svg {
-  color: var(--accent-primary);
-  filter: drop-shadow(0 0 8px var(--accent-glow));
+  gap: 10px;
 }
 
 .logo h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: var(--accent-gradient);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.025em;
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .header-right {
   display: flex;
-  gap: var(--space-md);
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .export-all-btn,
 .reset-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: 8px;
+  height: 36px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
   border: none;
   white-space: nowrap;
 }
 
 .export-all-btn {
-  background: var(--accent-gradient);
-  color: white;
-  box-shadow: var(--shadow-md);
+  padding: 0 14px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 .export-all-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 15px -3px rgba(99, 102, 241, 0.4);
+  background: var(--color-primary-hover);
 }
 
-.export-all-btn:active:not(:disabled) {
-  transform: translateY(0);
+.export-all-btn:active:not(:disabled),
+.reset-btn:active {
+  transform: scale(0.97);
 }
 
 .export-all-btn:disabled {
-  opacity: 0.5;
+  background: var(--color-secondary);
+  color: var(--text-muted);
   cursor: not-allowed;
-  filter: grayscale(0.5);
 }
 
 .reset-btn {
+  width: 36px;
+  justify-content: center;
+  padding: 0;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   border: 1px solid var(--border-medium);
 }
 
@@ -133,23 +124,35 @@
   display: flex;
   flex-direction: column;
   padding: 6px;
-  background: var(--bg-card);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.45));
+  box-shadow: var(--shadow-lg);
+  transform-origin: top right; /* grows out of the button */
+  animation: menu-in 140ms var(--ease-out);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 .export-menu__item {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   padding: 10px 12px;
   text-align: left;
   color: var(--text-primary);
   background: transparent;
   border: 0;
   border-radius: var(--radius-md);
-  cursor: pointer;
+}
+
+.export-menu__item svg {
+  color: var(--text-tertiary);
 }
 
 .export-menu__item:hover,
@@ -165,11 +168,17 @@
 }
 
 .export-menu__label {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
 .export-menu__hint {
   font-size: 0.75rem;
   color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .export-menu__list {
+    animation: none;
+  }
 }

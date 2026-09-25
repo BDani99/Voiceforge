@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import BrandMark from '../BrandMark/BrandMark';
 import './ErrorBoundary.css';
 
 interface ErrorBoundaryProps {
@@ -26,6 +27,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
 
     return (
       <div className="error-boundary" role="alert">
+        <BrandMark size={44} />
         <h1>Something went wrong</h1>
         <p>An unexpected error occurred. Your saved work is safe.</p>
         <button type="button" onClick={() => window.location.assign('/')}>

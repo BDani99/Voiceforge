@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify, getErrorMessage } from '../../utils/notificationService';
-import { Shield } from 'lucide-react';
+import BrandMark from '../../components/BrandMark/BrandMark';
 import '../Auth/Auth.css';
 
 export default function AdminAuth() {
@@ -43,10 +43,11 @@ export default function AdminAuth() {
   return (
     <div className="auth-container admin-auth">
       <div className="auth-card">
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <Shield size={48} color="#c084fc" />
+        <div className="auth-brand">
+          <BrandMark size={44} />
+          <h1>VoiceForge</h1>
         </div>
-        <h1>VoiceForge Admin</h1>
+        <span className="auth-badge">Admin</span>
         <h2>Restricted Access</h2>
         <form onSubmit={handleAdminLogin}>
           <input aria-label="Admin Email" autoComplete="username"
@@ -64,7 +65,7 @@ export default function AdminAuth() {
             required
           />
           {errorMsg && <div className="auth-error">{errorMsg}</div>}
-          <button type="submit" disabled={loading} style={{ background: '#c084fc' }}>
+          <button type="submit" disabled={loading}>
             {loading ? 'Authenticating...' : 'Secure Login'}
           </button>
         </form>

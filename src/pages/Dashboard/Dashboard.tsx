@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo, type FormEvent, type MouseEvent } from 'r
 import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notificationService';
-import { Plus, Trash2, FolderOpen, Search, User, Sparkles, Zap, ArrowRight, ArchiveRestore, LayoutGrid, Clock } from 'lucide-react';
+import { Plus, Trash2, FolderOpen, Search, User, Zap, ArchiveRestore, LayoutGrid, Clock } from 'lucide-react';
 import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
 import Modal from '../../components/Modal/Modal';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import '../../components/Header/Header.css';
+import BrandMark from '../../components/BrandMark/BrandMark';
 import type { Tables } from '../../types/aliases';
 import './Dashboard.css';
 
@@ -166,14 +167,12 @@ export default function Dashboard() {
       <header className="app-header dashboard-header">
         <div className="header-left">
           <div className="logo dashboard-logo">
-            <div className="logo-icon-wrapper">
-              <Sparkles size={24} />
-            </div>
+            <BrandMark size={30} />
             <h1>VoiceForge</h1>
           </div>
         </div>
         <div className="header-right">
-          <div className={`credit-display ${(credits ?? 0) < 1000 ? 'low-credits pulse' : ''}`} title="Available Credits">
+          <div className={`credit-display ${(credits ?? 0) < 1000 ? 'low-credits' : ''}`} title="Available Credits">
             <Zap size={18} className="credit-icon" />
             <span>{credits?.toLocaleString() || 0}</span>
             <span className="credit-label">credits</span>
@@ -249,7 +248,6 @@ export default function Dashboard() {
           ) : (
             filteredProjects.map(project => (
               <div key={project.id} className={`project-card ${project.is_deleted ? 'deleted' : ''}`} onClick={() => !project.is_deleted && openProject(project.id)}>
-                <div className="project-card-bg-effect"></div>
                 <div className="project-info">
                   <div className="project-icon-wrapper">
                     <FolderOpen size={24} className="project-icon" />
@@ -280,12 +278,6 @@ export default function Dashboard() {
                     </button>
                   )}
                 </div>
-
-                {!project.is_deleted && (
-                  <div className="project-hover-arrow">
-                    <ArrowRight size={20} />
-                  </div>
-                )}
               </div>
             ))
           )}

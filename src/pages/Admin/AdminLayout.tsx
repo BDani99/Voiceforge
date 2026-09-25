@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, ScrollText, Settings, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, ScrollText, Settings, LogOut } from 'lucide-react';
+import BrandMark from '../../components/BrandMark/BrandMark';
 import { supabase } from '../../services/supabase';
 import './AdminLayout.css';
 
@@ -27,7 +28,7 @@ export default function AdminLayout() {
       {/* Sidebar */}
       <aside className="admin-sidebar">
         <div className="sidebar-header">
-          <Shield size={28} className="brand-icon" />
+          <BrandMark size={30} className="brand-icon" />
           <div className="brand-text">
             <h2>VoiceForge</h2>
             <span className="badge">Admin Portal</span>

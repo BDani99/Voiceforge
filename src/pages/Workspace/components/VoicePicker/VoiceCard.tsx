@@ -1,4 +1,4 @@
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronRight, Fingerprint } from 'lucide-react';
 import { genderLabel, isClonedVoice, localeLabel, modelLabel, voiceUseCases, voiceName } from '../../../../utils/voices';
 import type { PreviewPlayer } from '../../../../hooks/usePreviewPlayer';
 import type { Voice } from '../../../../types/models';
@@ -41,7 +41,7 @@ export default function VoiceCard({ voice, language, model, isLoading, disabled 
               <span className="vc__chips">
                 <span className="vp-chip vp-chip--model">{modelLabel(model)}</span>
                 {isClonedVoice(voice) && (
-                  <span className="vp-chip vp-chip--cloned"><Sparkles size={11} aria-hidden="true" /> Cloned</span>
+                  <span className="vp-chip vp-chip--cloned"><Fingerprint size={11} aria-hidden="true" /> Cloned</span>
                 )}
                 {tags.map((tag) => <span key={tag} className="vp-chip">{tag}</span>)}
               </span>

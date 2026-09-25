@@ -6,6 +6,7 @@ import { notify, getErrorMessage } from '../../utils/notificationService';
 import { isPasswordBreached, validatePassword } from '../../utils/passwordPolicy';
 import PasswordStrengthMeter from '../../components/PasswordStrengthMeter/PasswordStrengthMeter';
 import { Eye, EyeOff } from 'lucide-react';
+import BrandMark from '../../components/BrandMark/BrandMark';
 import './Auth.css';
 
 export default function Auth() {
@@ -82,7 +83,10 @@ export default function Auth() {
   return (
     <div className="auth-container">
       <div className={`auth-card ${shake ? 'shake' : ''}`}>
-        <h1>VoiceForge</h1>
+        <div className="auth-brand">
+          <BrandMark size={44} />
+          <h1>VoiceForge</h1>
+        </div>
         <h2>{isLogin ? 'Login' : 'Register'}</h2>
         <form onSubmit={handleAuth}>
           <input aria-label="Email" autoComplete="email"

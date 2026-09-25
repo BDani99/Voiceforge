@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Eraser, Loader2, Sparkles, Volume2 } from 'lucide-react';
+import { Eraser, Loader2, TextSelect, Volume2 } from 'lucide-react';
 import { EMOTION_OPTIONS } from '../../../../constants/voiceConstants';
 import { emotionHue } from '../../../../utils/emotionColors';
 import { pauseLabel } from '../../../../utils/displayRuns';
@@ -83,7 +83,7 @@ export function SelectionToolbar({
     >
       <div className="ec-toolbar__head">
         <span className="ec-toolbar__selected">
-          <Sparkles size={14} aria-hidden="true" /> {range ? `“${snippet(selected)}”` : 'Cursor position'}
+          <TextSelect size={14} aria-hidden="true" /> {range ? `“${snippet(selected)}”` : 'Cursor position'}
         </span>
         {previewable && (
           <button type="button" className="ec-btn" disabled={isPreviewing} onMouseDown={keepSelection} onClick={onPreview}>

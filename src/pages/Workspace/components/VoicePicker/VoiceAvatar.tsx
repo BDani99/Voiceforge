@@ -38,7 +38,7 @@ export default function VoiceAvatar({ voice, size = 44 }: VoiceAvatarProps) {
   return (
     <span
       className="vp-avatar vp-avatar--initials"
-      style={{ ...style, background: `linear-gradient(135deg, hsl(${hue} 65% 45%), hsl(${(hue + 40) % 360} 65% 35%))` }}
+      style={{ ...style, background: `hsl(${hue} 42% 36%)` }}
       aria-hidden="true"
     >
       {voiceInitials(voice)}
