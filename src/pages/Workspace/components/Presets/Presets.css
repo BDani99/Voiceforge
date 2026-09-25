@@ -22,9 +22,9 @@
   gap: 8px;
   padding: 10px 12px;
   font-size: 0.82rem;
-  color: #fcd34d;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--color-warning-text);
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-md);
 }
 
@@ -75,7 +75,7 @@
 .pp__error {
   margin: 0;
   font-size: 0.8rem;
-  color: #fca5a5;
+  color: var(--color-danger-text);
 }
 
 /* Buttons shared by the panel and the manager */
@@ -90,13 +90,13 @@
   background: transparent;
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .pp-btn:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--color-primary-soft);
 }
 
 .pp-btn:focus-visible {
@@ -110,12 +110,12 @@
 }
 
 .pp-btn[aria-pressed='true'] {
-  color: #fcd34d;
-  border-color: rgba(245, 158, 11, 0.5);
+  color: var(--color-warning-text);
+  border-color: var(--color-warning-border);
 }
 
 .pp-btn--primary {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }
@@ -126,20 +126,20 @@
 }
 
 .pp-btn--danger {
-  color: #fff;
-  background: #dc2626;
-  border-color: #dc2626;
+  color: var(--color-on-primary);
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
 }
 
 .pp-btn--danger:hover:not(:disabled) {
-  background: #ef4444;
-  border-color: #ef4444;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .pp-btn--danger-ghost:hover:not(:disabled) {
-  color: #fca5a5;
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-danger-text);
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
 }
 
 /* ------------------------------------------------------------------ manager */
@@ -204,7 +204,7 @@
 
 .pm-card--active {
   border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--color-primary-soft);
 }
 
 .pm-card__name {
@@ -240,13 +240,13 @@
 }
 
 .pm-badge--default {
-  color: #fcd34d;
-  background: rgba(245, 158, 11, 0.14);
+  color: var(--color-warning-text);
+  background: var(--color-warning-soft);
 }
 
 .pm-badge--active {
-  color: #a5b4fc;
-  background: rgba(99, 102, 241, 0.18);
+  color: var(--color-primary-text);
+  background: var(--color-primary-border);
 }
 
 .pm-card__voice {
@@ -269,7 +269,7 @@
   padding: 2px 8px;
   font-size: 0.7rem;
   color: var(--text-tertiary);
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--color-secondary);
   border-radius: var(--radius-full);
 }
 
@@ -290,5 +290,5 @@
 
 .pm-card__confirm span {
   font-size: 0.85rem;
-  color: #fca5a5;
+  color: var(--color-danger-text);
 }

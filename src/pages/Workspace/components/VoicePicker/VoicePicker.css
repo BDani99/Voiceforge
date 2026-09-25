@@ -16,7 +16,7 @@
 .vc:hover,
 .vc:focus-within {
   border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.06);
+  background: var(--color-primary-soft);
 }
 
 .vc:focus-within:has(.vc__main:focus-visible) {
@@ -98,7 +98,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--color-on-primary);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -109,21 +109,21 @@
   font-size: 0.68rem;
   line-height: 1.5;
   color: var(--text-tertiary);
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--color-secondary);
   border-radius: var(--radius-full);
 }
 
 .vp-chip--model {
-  color: #a5b4fc;
-  background: rgba(99, 102, 241, 0.16);
+  color: var(--color-primary-text);
+  background: var(--color-primary-soft);
 }
 
 .vp-chip--cloned {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: #f0abfc;
-  background: rgba(217, 70, 239, 0.16);
+  color: var(--color-primary-text);
+  background: var(--color-primary-soft);
 }
 
 .vp-sample {
@@ -134,15 +134,15 @@
   align-items: center;
   justify-content: center;
   color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
   border-radius: 50%;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .vp-sample:hover,
 .vp-sample--active {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--accent-primary);
 }
 
@@ -201,7 +201,7 @@
 
 .vp__clear:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-card-hover);
 }
 
 .vp__selects {
@@ -248,7 +248,7 @@
 }
 
 .vp__segmented button.is-active {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--accent-primary);
 }
 
@@ -268,13 +268,13 @@
   padding: 6px 12px;
   font-size: 0.8rem;
   color: var(--accent-primary);
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid var(--color-primary-border);
   border-radius: var(--radius-full);
 }
 
 .vp__reset:hover,
 .vp__more:hover {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--color-primary-soft);
 }
 
 .vp__more {
@@ -313,12 +313,12 @@
 
 .vp-row:hover {
   border-color: var(--border-hover);
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--color-primary-soft);
 }
 
 .vp-row--selected {
   border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--color-primary-soft);
 }
 
 .vp-row__main {

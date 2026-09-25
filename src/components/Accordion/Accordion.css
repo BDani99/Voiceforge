@@ -2,11 +2,11 @@
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  transition: all var(--transition-base);
+  transition: background var(--transition-base), border-color var(--transition-base);
 }
 
 .accordion.closed {
-  background: rgba(20, 27, 45, 0.6);
+  background: transparent;
 }
 
 .accordion-header {
@@ -32,7 +32,7 @@
 }
 
 .accordion-icon {
-  color: var(--accent-primary);
+  color: var(--color-primary-text);
 }
 
 .accordion-title h3 {
@@ -52,16 +52,5 @@
 .accordion-content {
   padding: 0 20px 20px 20px;
   border-top: 1px solid transparent; /* Prevents margin collapse */
-  animation: slideDown 0.2s ease-out;
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}

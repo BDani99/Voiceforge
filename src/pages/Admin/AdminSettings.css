@@ -17,11 +17,11 @@
 }
 
 .admin-layout .settings-card {
-  background: #1E293B;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .admin-layout .card-header {
@@ -30,17 +30,17 @@
   gap: 12px;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .admin-layout .card-header h3 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--text-primary);
   font-size: 1.2rem;
 }
 
 .admin-layout .card-header .icon {
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .admin-layout .settings-form {
@@ -51,7 +51,7 @@
 
 .admin-layout .settings-form .help-text {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 8px 0 0 0;
   line-height: 1.5;
 }
@@ -62,18 +62,18 @@
 
 .admin-layout .settings-form textarea {
   width: 100%;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
   padding: 12px;
   border-radius: 8px;
-  color: #f8fafc;
+  color: var(--text-primary);
   outline: none;
   font-family: inherit;
   resize: vertical;
 }
 
 .admin-layout .settings-form textarea:focus {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
 }
 
 .admin-layout .save-btn {
@@ -82,8 +82,8 @@
   justify-content: center;
   gap: 8px;
   width: max-content;
-  background: #8b5cf6;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   padding: 10px 20px;
   border-radius: 8px;
@@ -93,7 +93,7 @@
 }
 
 .admin-layout .save-btn:hover {
-  background: #7c3aed;
+  background: var(--color-primary);
 }
 
 .admin-layout .save-btn:disabled {

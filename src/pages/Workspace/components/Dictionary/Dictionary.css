@@ -1,5 +1,5 @@
 .dictionary-container {
-  background: #1e293b;
+  background: var(--bg-card-hover);
   border-radius: 8px;
   padding: 16px;
   margin-top: 20px;
@@ -9,7 +9,7 @@
   margin-top: 0;
   margin-bottom: 16px;
   font-size: 1.1rem;
-  color: #f8fafc;
+  color: var(--text-primary);
 }
 
 .dictionary-form {
@@ -23,17 +23,17 @@
   min-width: 0;
   padding: 8px;
   border-radius: 6px;
-  border: 1px solid #334155;
-  background: #0f172a;
-  color: white;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-input);
+  color: var(--color-on-primary);
   font-size: 0.9rem;
 }
 
 .dictionary-form button {
-  background: #3b82f6;
+  background: var(--color-info);
   border: none;
   border-radius: 6px;
-  color: white;
+  color: var(--color-on-primary);
   padding: 0 12px;
   cursor: pointer;
   display: flex;
@@ -42,7 +42,7 @@
 }
 
 .dictionary-form button:disabled {
-  background: #475569;
+  background: var(--border-medium);
   cursor: not-allowed;
 }
 
@@ -58,10 +58,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #0f172a;
+  background: var(--bg-input);
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid #334155;
+  border: 1px solid var(--border-medium);
 }
 
 .dictionary-words {
@@ -72,21 +72,21 @@
 }
 
 .dictionary-words .orig {
-  color: #f8fafc;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .dictionary-words .arrow {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .dictionary-words .repl {
-  color: #34d399;
+  color: var(--color-success-text);
 }
 
 .dictionary-item .delete-btn {
   background: transparent;
-  color: #ef4444;
+  color: var(--color-danger);
   padding: 4px;
   margin: 0;
 }

@@ -6,13 +6,13 @@
 
 .admin-layout .logs-header h2 {
   margin: 0 0 8px 0;
-  color: #f8fafc;
+  color: var(--text-primary);
   font-size: 1.5rem;
 }
 
 .admin-layout .logs-header p {
   margin: 0;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-size: 0.95rem;
 }
 
@@ -23,8 +23,8 @@
 }
 
 .admin-layout .badge-admin_topup {
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399;
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 0.75rem;
@@ -33,8 +33,8 @@
 }
 
 .admin-layout .badge-admin_deduct {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 0.75rem;
@@ -43,8 +43,8 @@
 }
 
 .admin-layout .badge-generation {
-  background: rgba(139, 92, 246, 0.1);
-  color: #c084fc;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 0.75rem;
@@ -57,12 +57,12 @@
 }
 
 .admin-layout .reason-text {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #e2e8f0;
+  color: var(--text-secondary);
   display: inline-block;
   white-space: nowrap;
   overflow: hidden;
@@ -70,7 +70,7 @@
   max-width: 100%;
 }
 
-.admin-layout .text-emerald-400{ color: #34d399; }
-.admin-layout .text-red-400{ color: #f87171; }
-.admin-layout .text-purple-400{ color: #c084fc; }
-.admin-layout .text-muted{ color: #64748b; font-style: italic; }
+.admin-layout .text-emerald-400{ color: var(--color-success-text); }
+.admin-layout .text-red-400{ color: var(--color-danger-text); }
+.admin-layout .text-purple-400{ color: var(--color-primary-text); }
+.admin-layout .text-muted{ color: var(--text-muted); font-style: italic; }

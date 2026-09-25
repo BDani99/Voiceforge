@@ -20,32 +20,32 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .admin-layout .search-box input {
   width: 100%;
-  background: #1E293B;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 10px 12px 10px 40px;
-  color: #f8fafc;
+  color: var(--text-primary);
   font-size: 0.9rem;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .admin-layout .search-box input:focus {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
 }
 
 .admin-layout .filter-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
   padding: 10px 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -54,7 +54,7 @@
 }
 
 .admin-layout .filter-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-secondary);
 }
 
 .admin-layout .pagination {
@@ -66,9 +66,9 @@
 }
 
 .admin-layout .pagination button {
-  background: #1E293B;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
@@ -80,7 +80,7 @@
 }
 
 .admin-layout .pagination span {
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-size: 0.9rem;
 }
 
@@ -91,8 +91,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(11, 17, 32, 0.8);
-  backdrop-filter: blur(4px);
+  background: var(--overlay);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -100,23 +99,18 @@
 }
 
 .admin-layout .admin-modal {
-  background: #1E293B;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--color-primary-border);
   border-radius: 16px;
   width: 100%;
   max-width: 500px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-  animation: modalIn 0.2s ease-out;
-}
-
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  box-shadow: var(--shadow-xl);
+  animation: dialog-in 200ms var(--ease-out);
 }
 
 .admin-layout .modal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-light);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -125,19 +119,19 @@
 .admin-layout .modal-header h3 {
   margin: 0;
   font-size: 1.2rem;
-  color: #f8fafc;
+  color: var(--text-primary);
 }
 
 .admin-layout .close-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 4px;
 }
 
 .admin-layout .close-btn:hover {
-  color: #f8fafc;
+  color: var(--text-primary);
 }
 
 .admin-layout .modal-body {
@@ -152,7 +146,7 @@
 
 .admin-layout .user-info-grid label {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 4px;
@@ -162,35 +156,35 @@
 .admin-layout .user-info-grid p {
   margin: 0;
   font-size: 0.95rem;
-  color: #f8fafc;
+  color: var(--text-primary);
 }
 
 .admin-layout .role-text {
   text-transform: capitalize;
-  color: #34d399 !important;
+  color: var(--color-success-text) !important;
 }
 
 .admin-layout .balance-text {
   font-weight: 700;
-  color: #c084fc !important;
+  color: var(--color-primary-text) !important;
   font-size: 1.1rem !important;
 }
 
 .admin-layout .modal-section-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-card-hover);
   margin: 24px 0;
 }
 
 .admin-layout .modal-body h4 {
   margin: 0 0 16px 0;
-  color: #f8fafc;
+  color: var(--text-primary);
   font-size: 1rem;
 }
 
 .admin-layout .credit-action-toggle {
   display: flex;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-input);
   border-radius: 8px;
   padding: 4px;
   margin-bottom: 16px;
@@ -205,21 +199,21 @@
   padding: 8px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .admin-layout .credit-action-toggle button.active.add {
-  background: #10B981;
-  color: white;
+  background: var(--color-success);
+  color: var(--color-on-primary);
 }
 
 .admin-layout .credit-action-toggle button.active.deduct {
-  background: #EF4444;
-  color: white;
+  background: var(--color-danger);
+  color: var(--color-on-primary);
 }
 
 .admin-layout .form-group {
@@ -229,28 +223,28 @@
 .admin-layout .form-group label {
   display: block;
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   margin-bottom: 6px;
 }
 
 .admin-layout .form-group input {
   width: 100%;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
   padding: 10px 12px;
   border-radius: 8px;
-  color: #f8fafc;
+  color: var(--text-primary);
   outline: none;
 }
 
 .admin-layout .form-group input:focus {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
 }
 
 .admin-layout .submit-credit-btn {
   width: 100%;
-  background: #8b5cf6;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   padding: 12px;
   border-radius: 8px;
@@ -260,18 +254,18 @@
 }
 
 .admin-layout .submit-credit-btn:hover {
-  background: #7c3aed;
+  background: var(--color-primary);
 }
 
 .admin-layout .danger-zone {
-  background: rgba(239, 68, 68, 0.05);
-  border: 1px dashed rgba(239, 68, 68, 0.3);
+  background: var(--color-danger-soft);
+  border: 1px dashed var(--color-danger-border);
   padding: 16px;
   border-radius: 8px;
 }
 
 .admin-layout .danger-zone h4 {
-  color: #f87171;
+  color: var(--color-danger-text);
 }
 
 .admin-layout .ban-btn {
@@ -281,24 +275,28 @@
   justify-content: center;
   gap: 8px;
   background: transparent;
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
   padding: 10px;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .admin-layout .ban-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-soft);
 }
 
 .admin-layout .ban-btn.unban {
-  color: #10B981;
-  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--color-success);
+  border-color: var(--color-success-border);
 }
 
 .admin-layout .ban-btn.unban:hover {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-success-soft);
 }
+
+/* Table cells */
+.admin-layout .cell-id { font-family: ui-monospace, 'JetBrains Mono', Consolas, monospace; color: var(--text-tertiary); }
+.admin-layout .cell-credits { font-weight: 600; color: var(--text-primary); }

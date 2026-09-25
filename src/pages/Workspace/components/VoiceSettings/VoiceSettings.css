@@ -1,4 +1,4 @@
-/* VoiceSettings.css - Sleek Dark Theme */
+/* Voice settings: select, sliders and prosody controls (shared with the right panel) */
 
 .global-defaults-controls {
   padding-top: 8px;
@@ -40,7 +40,7 @@
   background-color: var(--bg-input);
   color: var(--text-primary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
   font-weight: 500;
   min-height: 40px;
   /* Custom arrow for select in dark mode */
@@ -96,24 +96,32 @@
   background: var(--accent-primary);
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 10px var(--accent-glow);
-  transition: all var(--transition-fast);
+  border: 0;
+  transition: background var(--transition-fast);
 }
 
 .global-range::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  background: var(--accent-secondary);
+  background: var(--color-primary-hover);
+}
+
+.global-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-primary);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
 }
 
 .range-value {
   font-size: 0.85rem;
-  color: var(--accent-primary);
+  color: var(--color-primary-text);
   font-weight: 600;
   text-align: center;
   padding: var(--space-xs) var(--space-sm);
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--color-primary-soft);
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--color-primary-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,7 +137,7 @@
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
   text-align: center;
   min-height: 32px;
   display: flex;
@@ -139,8 +147,8 @@
 
 .custom-toggle-btn:hover {
   background: var(--bg-input);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary-text);
 }
 
 /* ------------------------------------------------ stacked prosody controls (pc-) */
@@ -202,16 +210,16 @@
   background: transparent;
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
 }
 
 .pc__toggle:hover {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary-border);
 }
 
 .pc__toggle.is-active {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }

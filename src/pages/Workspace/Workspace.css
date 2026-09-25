@@ -53,21 +53,19 @@
 }
 
 .section-header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 650;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
 }
 
 .generation-status {
   margin-left: auto;
-  font-size: 0.8rem;
-  color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.1);
-  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: var(--color-secondary);
+  padding: 3px 12px;
   border-radius: var(--radius-full);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Paragraphs Section Container */
@@ -75,7 +73,6 @@
   background: var(--bg-card);
   border-radius: var(--radius-xl);
   padding: var(--space-lg);
-  box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-light);
   flex: 1;
   display: flex;
@@ -93,26 +90,7 @@
   margin-bottom: -20px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg); /* More space between paragraphs */
-}
-
-/* Sleek Dark Scrollbar */
-.paragraphs-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.paragraphs-list::-webkit-scrollbar-track {
-  background: var(--bg-input);
-  border-radius: var(--radius-full);
-}
-
-.paragraphs-list::-webkit-scrollbar-thumb {
-  background: var(--border-medium);
-  border-radius: var(--radius-full);
-}
-
-.paragraphs-list::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
+  gap: var(--space-md);
 }
 
 /* Add paragraph at beginning button */
@@ -120,25 +98,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 14px;
   background: transparent;
-  border: 1px dashed var(--border-medium);
+  border: 1px dashed var(--border-hover);
   border-radius: var(--radius-md);
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-size: 0.8rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
   align-self: flex-start;
 }
 .add-paragraph-top-btn:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.05);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary-text);
+  background: var(--color-primary-soft);
 }
 
-/* Modern Empty State */
-.empty-state {
+/* Empty state of the text list */
+.paragraphs-list .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -149,12 +126,12 @@
   min-height: 250px;
 }
 
-.empty-state svg {
-  margin-bottom: var(--space-lg);
-  opacity: 0.3;
+.paragraphs-list .empty-state svg {
+  margin-bottom: var(--space-md);
+  opacity: 0.4;
 }
 
-.empty-state p {
+.paragraphs-list .empty-state p {
   font-size: 1rem;
   font-weight: 500;
 }

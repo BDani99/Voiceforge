@@ -49,7 +49,7 @@
 /* Emphasis: an underline in the strength of the emphasis; pronunciations: dotted; pauses: a thin bar (no width, so the text never moves). */
 .et__emph {
   text-decoration: underline;
-  text-decoration-color: #f59e0b;
+  text-decoration-color: var(--color-warning);
   text-underline-offset: 4px;
   text-decoration-thickness: 2px;
 }
@@ -70,18 +70,18 @@
 }
 
 .et__sub {
-  text-decoration: underline dotted #38bdf8;
+  text-decoration: underline dotted var(--color-info-text);
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
-  background: rgba(56, 189, 248, 0.14);
+  background: var(--color-info-soft);
   border-radius: 3px;
 }
 
 /* The word being spoken (karaoke style). */
 .et__now {
-  background: rgba(250, 204, 21, 0.4);
+  background: var(--color-highlight);
   border-radius: 4px;
-  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.4);
+  box-shadow: 0 0 0 2px var(--color-highlight);
 }
 
 .et__pause {
@@ -100,8 +100,7 @@
   width: 2px;
   height: 1.2em;
   border-radius: 1px;
-  background: #34d399;
-  box-shadow: 0 0 4px rgba(52, 211, 153, 0.8);
+  background: var(--color-success-text);
 }
 
 .et__input {
@@ -136,8 +135,8 @@
   gap: 8px;
   margin-top: 8px;
   padding: 10px 12px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
   border-radius: var(--radius-md);
 }
 
@@ -181,7 +180,7 @@
   background: transparent;
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-full);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .ec-chip {
@@ -201,7 +200,7 @@
 }
 
 .ec-chip--clear:hover {
-  background: rgba(148, 163, 184, 0.15);
+  background: var(--color-secondary);
 }
 
 .ec-btn:hover:not(:disabled) {
@@ -263,7 +262,7 @@
 }
 
 .ec-tag button:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-secondary);
 }
 
 .ec-link {
@@ -278,7 +277,7 @@
   display: flex;
   gap: 4px;
   padding: 3px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--bg-input);
   border-radius: var(--radius-md);
 }
 
@@ -299,7 +298,7 @@
 }
 
 .ec-tab.is-active {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--accent-primary);
 }
 
@@ -351,7 +350,7 @@
 }
 
 .ec-btn--primary {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }
