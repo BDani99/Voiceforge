@@ -85,7 +85,7 @@
 .auth-card input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .auth-card input:-webkit-autofill,

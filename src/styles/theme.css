@@ -102,7 +102,6 @@
   /* ---------------------------------------------- names the components use */
   --accent-primary: var(--color-primary);
   --accent-secondary: var(--color-primary-hover);
-  --accent-glow: rgba(118, 87, 238, 0.32); /* focus ring */
   --success: var(--color-success);
   --success-bg: var(--color-success-soft);
   --error: var(--color-danger);

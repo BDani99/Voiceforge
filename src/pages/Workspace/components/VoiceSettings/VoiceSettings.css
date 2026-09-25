@@ -54,7 +54,7 @@
 .global-select:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .global-select:hover {
@@ -226,5 +226,5 @@
 
 .pc__toggle:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--color-primary);
 }

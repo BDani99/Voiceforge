@@ -29,7 +29,7 @@
   border-color: var(--accent-primary);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .custom-select-icon {

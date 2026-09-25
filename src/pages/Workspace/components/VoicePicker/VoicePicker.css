@@ -20,7 +20,7 @@
 }
 
 .vc:focus-within:has(.vc__main:focus-visible) {
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 .vc__main {
@@ -148,7 +148,7 @@
 
 .vp-sample:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 /* ---------------------------------------------------------------------- modal */
@@ -179,7 +179,7 @@
 
 .vp__search:focus-within {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .vp__search input {

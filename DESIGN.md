@@ -48,7 +48,7 @@ variant; the primary colour is never used for large filled areas other than butt
 - Radii: `--radius-sm` 6, `-md` 8, `-lg` 10, `-xl` 14 px. Pills (`-full`) only for chips and counters.
 - Depth comes from surface colour and a 1 px border. Shadows (`--shadow-*`) only lift what floats:
   menus, modals.
-- Focus: a 3 px ring in `--accent-glow` on inputs, `outline` on buttons.
+- Focus: fields turn their border primary and add a 1 px primary ring (one crisp line, never a border plus a soft glow); buttons get a 2 px `outline`.
 
 ## Motion
 

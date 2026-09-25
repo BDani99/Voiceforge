@@ -64,7 +64,7 @@
 .pm-card__rename input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .pp__input[aria-invalid='true'],
@@ -101,7 +101,7 @@
 
 .pp-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 .pp-btn:disabled {
@@ -163,7 +163,7 @@
 
 .pm__search:focus-within {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .pm__search input {
