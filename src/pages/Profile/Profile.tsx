@@ -21,6 +21,7 @@ import PasswordStrengthMeter from '../../components/PasswordStrengthMeter/Passwo
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import './Profile.css';
+import { chartTheme } from '../../utils/chartTheme';
 
 // Pulls in MediaRecorder / getUserMedia handling, only needed once someone opens this tab.
 const MyClonedVoices = lazy(() => import('./VoiceCloning/MyClonedVoices'));
@@ -307,21 +308,14 @@ export default function Profile() {
               <h3><TrendingUp size={18} /> Character Usage – Last 14 Days</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <defs>
-                    <linearGradient id="charGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                  <XAxis dataKey="date" tick={{ fill: chartTheme.axis, fontSize: 11 }} />
+                  <YAxis tick={{ fill: chartTheme.axis, fontSize: 11 }} />
                   <Tooltip
-                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                    labelStyle={{ color: '#f8fafc' }}
-                    itemStyle={{ color: '#c084fc' }}
+                    contentStyle={chartTheme.tooltip}
+                    itemStyle={{ color: chartTheme.primary }}
                   />
-                  <Area type="monotone" dataKey="chars" stroke="#8b5cf6" fill="url(#charGrad)" strokeWidth={2} dot={false} name="Characters" />
+                  <Area type="monotone" dataKey="chars" stroke={chartTheme.primary} fill={chartTheme.primary} fillOpacity={0.12} strokeWidth={2} dot={false} isAnimationActive={false} name="Characters" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

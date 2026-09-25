@@ -9,6 +9,7 @@ import {
 import { parseDashboardStats } from '../../utils/adminStats';
 import LoadingScreen from '../../components/LoadingScreen/LoadingScreen';
 import './AdminDashboard.css';
+import { chartTheme } from '../../utils/chartTheme';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -20,8 +21,6 @@ export default function AdminDashboard() {
   const [chartData, setChartData] = useState<{ name: string; characters: number }[]>([]);
   const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const COLORS = ['#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#14B8A6'];
 
   useEffect(() => {
     let cancelled = false;
@@ -118,14 +117,14 @@ export default function AdminDashboard() {
           <div className="chart-wrapper">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} tickMargin={10} />
-                <YAxis stroke="#94A3B8" fontSize={12} tickFormatter={(val: number) => (val >= 1000 ? `${(val / 1000).toFixed(1)}k` : String(val))} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                <XAxis dataKey="name" stroke={chartTheme.axis} fontSize={12} tickMargin={10} />
+                <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={(val: number) => (val >= 1000 ? `${(val / 1000).toFixed(1)}k` : String(val))} />
                 <RechartsTooltip
-                  contentStyle={{ backgroundColor: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f8fafc' }}
-                  itemStyle={{ color: '#8B5CF6' }}
+                  contentStyle={chartTheme.tooltip}
+                  itemStyle={{ color: chartTheme.primary }}
                 />
-                <Line type="monotone" dataKey="characters" stroke="#8B5CF6" strokeWidth={3} dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="characters" stroke={chartTheme.primary} strokeWidth={2} dot={{ fill: chartTheme.primary, strokeWidth: 0, r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -142,15 +141,16 @@ export default function AdminDashboard() {
                   cy="50%"
                   innerRadius={60}
                   outerRadius={80}
-                  paddingAngle={5}
+                  paddingAngle={3}
+                  isAnimationActive={false}
                   dataKey="value"
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={entry.name} fill={chartTheme.series[index % chartTheme.series.length]} />
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  contentStyle={{ backgroundColor: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                  contentStyle={chartTheme.tooltip}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
               </PieChart>

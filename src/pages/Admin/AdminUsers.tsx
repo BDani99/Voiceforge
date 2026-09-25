@@ -186,10 +186,10 @@ export default function AdminUsers() {
                 aria-label={`Open details of ${user.email || user.id}`}
                 style={{ cursor: 'pointer' }}
               >
-                <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{user.id.substring(0, 8)}...</td>
+                <td className="cell-id">{user.id.substring(0, 8)}...</td>
                 <td>{user.email || '—'}</td>
                 <td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td>
-                <td style={{ fontWeight: '600', color: '#c084fc' }}>{(user.available_characters ?? 0).toLocaleString()}</td>
+                <td className="cell-credits">{(user.available_characters ?? 0).toLocaleString()}</td>
                 <td>
                   {user.is_banned ? (
                     <span className="admin-badge error">Suspended</span>
@@ -198,7 +198,7 @@ export default function AdminUsers() {
                   )}
                 </td>
                 <td>
-                  <MoreVertical size={16} color="#94a3b8" />
+                  <MoreVertical size={16} />
                 </td>
               </tr>
             ))}

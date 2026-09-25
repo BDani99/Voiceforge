@@ -82,49 +82,39 @@ a {
   color: inherit;
 }
 
-/* Focus styles for accessibility */
+/* Focus: a clear ring in the primary colour, only for keyboard users */
 :focus-visible {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-/* Scrollbar styling */
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hover) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
+  background: var(--border-medium);
+  border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--border-hover);
 }
 
-/* Dark mode scrollbar */
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track {
-    background: #2a2a2a;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #555;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #777;
-  }
-}
-
-/* Selection styles */
+/* Selection */
 ::selection {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--color-primary-border);
   color: inherit;
 }
 
@@ -227,13 +217,6 @@ body {
 }
 
 /* High contrast mode support */
-@media (prefers-contrast: high) {
-  :root {
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-  }
-}
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
@@ -247,11 +230,53 @@ body {
   }
 }
 
-/* Force hardware acceleration for smooth animations */
-.card,
-.generate-btn,
-.download-btn {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
+
+/* ─── Forms: label + input, shared by every page ─── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-group label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.form-group input {
+  height: 42px;
+  padding: 0 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.form-group input::placeholder { color: var(--text-muted); }
+.form-group input:hover { border-color: var(--border-hover); }
+.form-group input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ─── Shared motion ───
+   Modals fade in and rise a few pixels; nothing else in the app enters with an animation. */
+@keyframes overlay-in {
+  from { opacity: 0; }
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
+/* Spinner: the one loading animation for icons */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 0.9s linear infinite;
 }
