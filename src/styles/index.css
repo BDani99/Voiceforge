@@ -97,6 +97,14 @@ select:focus-visible {
   box-shadow: 0 0 0 1px var(--color-primary);
 }
 
+/* Borderless fields inside a wrapper: the wrapper (or the editor frame) draws the focus line */
+.vp__search input:focus-visible,
+.pm__search input:focus-visible,
+.et__input:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+}
+
 /* Scrollbars */
 * {
   scrollbar-width: thin;
