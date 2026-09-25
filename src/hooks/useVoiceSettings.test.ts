@@ -55,6 +55,18 @@ describe('useVoiceSettings', () => {
     expect(JSON.parse(localStorage.getItem('voiceforge_globalDefaults') ?? '{}')).toMatchObject({ pitch: 'high' });
   });
 
+  it('streams while generating by default, remembers the choice and resets to on', () => {
+    const { result } = renderHook(() => useVoiceSettings());
+    expect(result.current.streamingEnabled).toBe(true);
+
+    act(() => result.current.setStreamingEnabled(false));
+    expect(localStorage.getItem('voiceforge_streamingEnabled')).toBe('false');
+    expect(renderHook(() => useVoiceSettings()).result.current.streamingEnabled).toBe(false);
+
+    act(() => result.current.resetSettings());
+    expect(result.current.streamingEnabled).toBe(true);
+  });
+
   it('keeps the same object when a value does not change', () => {
     const { result } = renderHook(() => useVoiceSettings());
     const before = result.current.globalDefaults;
